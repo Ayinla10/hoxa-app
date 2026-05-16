@@ -46,6 +46,8 @@ export async function proxy(request: NextRequest) {
   // Protect private routes
   const isPrivate =
     pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/marketplace') ||
+    pathname.startsWith('/transactions') ||
     pathname.startsWith('/seller') ||
     pathname.startsWith('/admin')
 
