@@ -35,10 +35,10 @@ export default function ForgotPasswordPage() {
     <div className="bg-white rounded-2xl shadow-2xl p-8">
       {sent ? (
         <div className="text-center py-4">
-          <CheckCircle2 size={48} className="text-[#0F6A3D] mx-auto mb-4" />
+          <CheckCircle2 size={48} className="text-[#177945] mx-auto mb-4" />
           <h2 className="text-gray-900 font-bold text-xl mb-2">Check your email</h2>
           <p className="text-gray-500 text-sm mb-6">We sent a password reset link to <strong>{email}</strong></p>
-          <Link href="/login" className="text-[#0F6A3D] font-semibold hover:underline text-sm">Back to login</Link>
+          <Link href="/login" className="text-[#177945] font-semibold hover:underline text-sm">Back to login</Link>
         </div>
       ) : (
         <>
@@ -61,13 +61,13 @@ export default function ForgotPasswordPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#0F6A3D] focus:ring-2 focus:ring-[#0F6A3D]/10 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#0F6A3D] to-[#1F8A4D] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#177945] to-[#1a9152] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? <><Loader2 size={16} className="animate-spin" /> Sending...</> : 'Send Reset Link'}
             </button>

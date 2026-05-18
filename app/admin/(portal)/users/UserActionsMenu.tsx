@@ -1,0 +1,148 @@
+'use client'
+
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { MoreVertical, ShieldCheck, ShieldOff, Store, User, Loader2, Trash2 } from 'lucide-react'
+import { setUserRole, deleteUser } from '@/actions/admin'
+import { useRouter } from 'next/navigation'
+
+export default function UserActionsMenu({
+  userId,
+  currentRole,
+  userName,
+}: {
+  userId: string
+  currentRole: string
+  userName: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  const calcPosition = useCallback(() => {
+    if (!btnRef.current) return
+    const rect = btnRef.current.getBoundingClientRect()
+    const menuW = 176 // w-44 = 11rem = 176px
+    const menuH = 260 // estimated max height
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+
+    let top = rect.bottom + 4
+    let left = rect.right - menuW
+
+    // If menu would go off right edge
+    if (left + menuW > vw - 8) left = vw - menuW - 8
+    // If menu would go off left edge
+    if (left < 8) left = 8
+    // If menu would go below viewport, open upward
+    if (top + menuH > vh - 8) top = rect.top - menuH - 4
+
+    setMenuPos({ top, left })
+  }, [])
+
+  function toggle() {
+    if (!open) calcPosition()
+    setOpen(v => !v)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    function handleScroll() { setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [open])
+
+  async function changeRole(role: string) {
+    setOpen(false)
+    setLoading(true)
+    await setUserRole(userId, role)
+    router.refresh()
+    setLoading(false)
+  }
+
+  async function handleDelete() {
+    setOpen(false)
+    if (!confirm(`Permanently delete ${userName}? This removes their account, profile, and all related data. This cannot be undone.`)) return
+    setLoading(true)
+    const result = await deleteUser(userId)
+    if (result.error) {
+      alert(result.error)
+      setLoading(false)
+      return
+    }
+    router.refresh()
+    setLoading(false)
+  }
+
+  const actions = [
+    { role: 'admin', label: 'Make Admin', icon: ShieldCheck, show: currentRole !== 'admin' },
+    { role: 'seller', label: 'Make Seller', icon: Store, show: currentRole !== 'seller' },
+    { role: 'buyer', label: 'Set as Buyer', icon: User, show: currentRole !== 'buyer' },
+    { role: 'revoke_admin', label: 'Revoke Admin', icon: ShieldOff, show: currentRole === 'admin', danger: true },
+  ].filter(a => a.show)
+
+  const menu = open && menuPos ? createPortal(
+    <>
+      {/* Invisible backdrop to catch outside clicks on mobile */}
+      <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+      <div
+        ref={menuRef}
+        className="fixed z-[9999] bg-white rounded-xl shadow-xl border border-gray-200 py-1 w-44 text-sm animate-in fade-in zoom-in-95 duration-150"
+        style={{ top: menuPos.top, left: menuPos.left }}
+      >
+        <p className="px-3 py-1.5 text-gray-400 text-xs font-medium truncate border-b border-gray-100 mb-1">{userName}</p>
+        {actions.map(a => (
+          <button
+            key={a.role}
+            onClick={() => changeRole(a.role)}
+            className={`flex items-center gap-2.5 w-full px-3 py-2 hover:bg-gray-50 transition-colors text-left ${
+              a.danger ? 'text-red-500' : 'text-gray-700'
+            }`}
+          >
+            <a.icon size={14} />
+            {a.label}
+          </button>
+        ))}
+        <div className="border-t border-gray-100 mt-1 pt-1">
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-red-50 transition-colors text-left text-red-500"
+          >
+            <Trash2 size={14} />
+            Delete User
+          </button>
+        </div>
+      </div>
+    </>,
+    document.body
+  ) : null
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        disabled={loading}
+        className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors disabled:opacity-50"
+      >
+        {loading ? <Loader2 size={15} className="animate-spin" /> : <MoreVertical size={15} />}
+      </button>
+      {menu}
+    </>
+  )
+}

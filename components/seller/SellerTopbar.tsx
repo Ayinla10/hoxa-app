@@ -1,0 +1,121 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Bell, Search, ChevronDown, Menu, ArrowUpRight } from 'lucide-react'
+import Link from 'next/link'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
+import { updateSellerAvailability, getSellerRecord } from '@/actions/listings'
+import { useSidebar } from '@/lib/sidebar-context'
+import { useI18n } from '@/lib/i18n-context'
+
+interface Props {
+  title: string
+  sellerName: string
+  notifCount?: number
+}
+
+export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Props) {
+  const [availability, setAvailability] = useState('online')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const { setMobileOpen } = useSidebar()
+  const { t } = useI18n()
+
+  const statusOptions = [
+    { value: 'online', label: t('online'),  color: 'bg-green-500' },
+    { value: 'busy',   label: t('busy'),    color: 'bg-orange-500' },
+    { value: 'offline',label: t('offline'), color: 'bg-gray-400' },
+  ] as const
+
+  const current = statusOptions.find(s => s.value === availability)!
+
+  useEffect(() => {
+    getSellerRecord().then(s => { if (s?.availability) setAvailability(s.availability) })
+  }, [])
+
+  return (
+    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 lg:px-6 py-3.5">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left side */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Hamburger — mobile */}
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="lg:hidden p-2 -ml-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          {/* Title — desktop shows page title, mobile shows HOXA + SELLER badge */}
+          <h1 className="text-gray-900 font-bold text-lg hidden lg:block">{title}</h1>
+          <div className="flex items-center gap-2 lg:hidden min-w-0">
+            <span className="text-gray-900 font-bold text-base flex-shrink-0">HOXA</span>
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#177945]/10 border border-[#177945]/20 text-[#177945] text-[10px] font-bold tracking-wide hover:bg-[#177945]/20 active:bg-[#177945]/25 transition-colors flex-shrink-0"
+              title={t('switch_to_buyer')}
+            >
+              {t('seller_badge')}
+              <ArrowUpRight size={9} className="opacity-60" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto flex-shrink-0">
+          {/* Language — flag only on mobile */}
+          <div className="lg:hidden">
+            <LanguageSwitcher variant="icon" />
+          </div>
+
+          {/* Search — desktop only */}
+          <button className="hidden lg:flex p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Search">
+            <Search size={18} />
+          </button>
+
+          {/* Notifications */}
+          <Link href="/seller/notifications" className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Notifications">
+            <Bell size={18} />
+            {notifCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+            )}
+          </Link>
+
+          {/* Availability toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(v => !v)}
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              aria-label="Change availability status"
+            >
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${current.color}`} />
+              <span className="hidden sm:inline">{current.label}</span>
+              <ChevronDown size={13} className="text-gray-400 flex-shrink-0" />
+            </button>
+            {dropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} aria-hidden="true" />
+                <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {statusOptions.map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => { setAvailability(s.value); setDropdownOpen(false); updateSellerAvailability(s.value) }}
+                      className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <span className={`w-2 h-2 rounded-full ${s.color}`} />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Avatar */}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            {sellerName.charAt(0).toUpperCase()}
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}

@@ -2,12 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -37,8 +35,7 @@ export default function LoginPage() {
       seller: '/seller/dashboard',
       buyer: '/dashboard',
     }
-    router.push(redirects[profile?.role ?? 'buyer'])
-    router.refresh()
+    window.location.href = redirects[profile?.role ?? 'buyer']
   }
 
   return (
@@ -61,7 +58,7 @@ export default function LoginPage() {
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#0F6A3D] focus:ring-2 focus:ring-[#0F6A3D]/10 transition-all"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all"
           />
         </div>
 
@@ -74,7 +71,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#0F6A3D] focus:ring-2 focus:ring-[#0F6A3D]/10 transition-all"
+              className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all"
             />
             <button
               type="button"
@@ -85,7 +82,7 @@ export default function LoginPage() {
             </button>
           </div>
           <div className="text-right mt-1.5">
-            <Link href="/forgot-password" className="text-xs text-[#0F6A3D] hover:underline">
+            <Link href="/forgot-password" className="text-xs text-[#177945] hover:underline">
               Forgot password?
             </Link>
           </div>
@@ -94,7 +91,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#0F6A3D] to-[#1F8A4D] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
+          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#177945] to-[#1a9152] text-white font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
         >
           {loading ? <><Loader2 size={16} className="animate-spin" /> Signing in...</> : 'Sign In'}
         </button>
@@ -102,7 +99,7 @@ export default function LoginPage() {
 
       <p className="text-center text-sm text-gray-500 mt-6">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="text-[#0F6A3D] font-semibold hover:underline">
+        <Link href="/register" className="text-[#177945] font-semibold hover:underline">
           Create one
         </Link>
       </p>

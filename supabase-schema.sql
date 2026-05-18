@@ -13,6 +13,8 @@ create table profiles (
   phone text not null,
   country text not null,
   role text not null default 'buyer' check (role in ('buyer','seller','admin')),
+  language varchar(2) not null default 'en',
+  admin_permissions text[] not null default '{}',
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -127,9 +129,10 @@ create policy "Users see own notifications" on notifications for all using (auth
 -- ── AUDIT LOGS ───────────────────────────────
 create table audit_logs (
   id uuid primary key default gen_random_uuid(),
-  admin_id uuid not null references profiles(id),
-  action text not null,
-  entity text not null,
+  actor_id uuid references profiles(id),       -- null for system/cron actions
+  actor_role text,                              -- 'buyer','seller','admin','system'
+  action text not null,                         -- STATUS_CHANGE | ROLE_CHANGE | SETTINGS_CHANGE
+  entity text not null,                         -- 'transaction' | 'profile' | 'settings'
   entity_id text not null,
   metadata jsonb not null default '{}',
   created_at timestamptz not null default now()
@@ -139,9 +142,7 @@ alter table audit_logs enable row level security;
 create policy "Admins read audit logs" on audit_logs for select using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
 );
-create policy "Admins insert audit logs" on audit_logs for insert with check (
-  exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-);
+-- Inserts handled by SECURITY DEFINER triggers — no app-level insert policy needed
 
 -- ── MARKETPLACE SETTINGS ─────────────────────
 create table settings (
@@ -170,15 +171,16 @@ alter publication supabase_realtime add table offers;
 
 -- ── FUNCTION: auto-create profile on signup ──
 create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into profiles (id, full_name, phone, country, role)
+  insert into public.profiles (id, full_name, phone, country, role, language)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
     coalesce(new.raw_user_meta_data->>'phone', ''),
     coalesce(new.raw_user_meta_data->>'country', ''),
-    coalesce(new.raw_user_meta_data->>'role', 'buyer')
+    'buyer',
+    'en'
   );
   return new;
 end;

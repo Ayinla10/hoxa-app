@@ -7,11 +7,18 @@ const ROLE_HOME: Record<string, string> = {
   admin: '/admin/dashboard',
 }
 
-const PUBLIC_PATHS = ['/login', '/register', '/forgot-password']
+// Exact public paths (not prefix-matched for /admin)
+const PUBLIC_EXACT = ['/admin']
+const PUBLIC_PREFIX = ['/login', '/register', '/forgot-password']
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   let response = NextResponse.next({ request })
+
+  // /admin (exact) is the admin login page — always public
+  const isPublic =
+    PUBLIC_EXACT.includes(pathname) ||
+    PUBLIC_PREFIX.some(p => pathname.startsWith(p))
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,8 +39,8 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Redirect logged-in users away from public pages
-  if (user && PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+  // Redirect logged-in users away from public pages to their home
+  if (user && isPublic) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -43,27 +50,29 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(home, request.url))
   }
 
-  // Protect private routes
+  // Protect private routes — /admin/dashboard etc (not /admin itself)
   const isPrivate =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/marketplace') ||
     pathname.startsWith('/transactions') ||
     pathname.startsWith('/seller') ||
-    pathname.startsWith('/admin')
+    (pathname.startsWith('/admin/') && pathname !== '/admin')
 
   if (isPrivate && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Admin sub-routes redirect to /admin login, others to /login
+    const loginPath = pathname.startsWith('/admin/') ? '/admin' : '/login'
+    return NextResponse.redirect(new URL(loginPath, request.url))
   }
 
-  // Protect admin routes
-  if (pathname.startsWith('/admin') && user) {
+  // Protect admin sub-routes
+  if (pathname.startsWith('/admin/') && user) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
     if (profile?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/admin', request.url))
     }
   }
 
