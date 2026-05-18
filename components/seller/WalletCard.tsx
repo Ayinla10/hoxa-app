@@ -59,25 +59,25 @@ export default function WalletCard({ liquidity, pendingSettlements, dailyVolume,
       </div>
 
       {/* Quick actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={onAddListing ?? (() => router.push('/seller/listings'))}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors whitespace-nowrap"
         >
-          <Plus size={13} /> {t('add_listing')}
+          <Plus size={13} className="flex-shrink-0" /> {t('add_listing')}
         </button>
         <button
           onClick={handlePauseAll}
           disabled={pausing}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
         >
-          {pausing ? <Loader2 size={13} className="animate-spin" /> : <PauseCircle size={13} />} {t('pause_all')}
+          {pausing ? <Loader2 size={13} className="animate-spin flex-shrink-0" /> : <PauseCircle size={13} className="flex-shrink-0" />} {t('pause_all')}
         </button>
         <button
           onClick={() => router.push('/seller/analytics')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors whitespace-nowrap"
         >
-          <BarChart2 size={13} /> {t('nav_analytics')}
+          <BarChart2 size={13} className="flex-shrink-0" /> {t('nav_analytics')}
         </button>
       </div>
     </div>

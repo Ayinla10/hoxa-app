@@ -150,14 +150,71 @@ export default function SellerSidebar({ sellerName, score, online }: Props) {
             aria-hidden="true"
           />
           <aside className="relative w-72 max-w-[85vw] h-full bg-[#0B1F16] flex flex-col animate-slide-in-left">
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-3 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors z-10"
-              aria-label="Close menu"
-            >
-              <X size={18} />
-            </button>
-            {sidebarContent}
+            {/* Drawer header — gradient */}
+            <div className="bg-gradient-to-br from-[#177945] to-[#0f5530] px-5 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center">
+                  <span className="text-white font-black text-sm">H</span>
+                </div>
+                <div>
+                  <span className="text-white font-bold text-base">HOXA</span>
+                  <p className="text-white/55 text-[10px] mt-0.5">Seller Portal</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
+              >
+                <X size={16} className="text-white" />
+              </button>
+            </div>
+
+            {/* User strip */}
+            <div className="flex items-center gap-3 px-5 py-3.5 bg-white/5 border-b border-white/10">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                {sellerName.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{sellerName}</p>
+                <p className="text-white/40 text-xs">{t('seller_account')}</p>
+              </div>
+              <LanguageSwitcher variant="sidebar" />
+            </div>
+
+            {/* Nav */}
+            <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto px-3">
+              {nav.map(({ href, icon: Icon, label }) => {
+                const active = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={handleNavClick}
+                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
+                      ${active
+                        ? 'bg-[#177945]/25 text-white'
+                        : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+                      }`}
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#22C55E] rounded-r-full" />
+                    )}
+                    <Icon size={17} className={`flex-shrink-0 ${active ? 'text-[#22C55E]' : 'text-white/40 group-hover:text-white/60'}`} />
+                    {label}
+                  </Link>
+                )
+              })}
+            </nav>
+
+            {/* Footer */}
+            <div className="px-4 py-4 border-t border-white/10">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-500/10 text-sm font-medium transition-colors"
+              >
+                <LogOut size={15} /> {t('nav_logout')}
+              </button>
+            </div>
           </aside>
         </div>
       )}

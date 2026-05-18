@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Clock, ArrowLeftRight, FileText, User } from 'lucide-react'
+import { LayoutDashboard, Clock, ArrowLeftRight, FileText } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 
 export default function BottomNav() {
@@ -14,7 +14,6 @@ export default function BottomNav() {
     { href: '/seller/requests',     icon: Clock,           label: t('requests_short') },
     { href: '/seller/transactions', icon: ArrowLeftRight,  label: t('nav_transactions') },
     { href: '/seller/listings',     icon: FileText,        label: t('nav_listings') },
-    { href: '/seller/profile',      icon: User,            label: t('nav_profile') },
   ]
 
   return (

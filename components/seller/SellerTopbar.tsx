@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Bell, Search, ChevronDown, Menu, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { updateSellerAvailability, getSellerRecord } from '@/actions/listings'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -62,11 +61,6 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto flex-shrink-0">
-          {/* Language — flag only on mobile */}
-          <div className="lg:hidden">
-            <LanguageSwitcher variant="icon" />
-          </div>
-
           {/* Search — desktop only */}
           <button className="hidden lg:flex p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Search">
             <Search size={18} />
@@ -110,10 +104,12 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
             )}
           </div>
 
-          {/* Avatar */}
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-            {sellerName.charAt(0).toUpperCase()}
-          </div>
+          {/* Avatar — links to profile */}
+          <Link href="/seller/profile" className="flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm">
+              {sellerName.charAt(0).toUpperCase()}
+            </div>
+          </Link>
         </div>
       </div>
     </header>

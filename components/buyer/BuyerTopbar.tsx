@@ -77,10 +77,7 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
 
           {/* Right */}
           <div className="flex items-center gap-1 ml-auto">
-            <div className="lg:hidden">
-              <LanguageSwitcher variant="page" />
-            </div>
-            <button className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            <button className="hidden lg:flex p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
               <Search size={17} />
             </button>
             <Link href="/dashboard/notifications"
