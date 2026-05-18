@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, Plus, PauseCircle, BarChart2, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Plus, PauseCircle, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
 import { pauseAllOffers } from '@/actions/listings'
@@ -59,25 +59,19 @@ export default function WalletCard({ liquidity, pendingSettlements, dailyVolume,
       </div>
 
       {/* Quick actions */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-3">
         <button
           onClick={onAddListing ?? (() => router.push('/seller/listings'))}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors whitespace-nowrap"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors"
         >
-          <Plus size={13} className="flex-shrink-0" /> {t('add_listing')}
+          <Plus size={15} className="flex-shrink-0" /> {t('add_listing')}
         </button>
         <button
           onClick={handlePauseAll}
           disabled={pausing}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors disabled:opacity-50"
         >
-          {pausing ? <Loader2 size={13} className="animate-spin flex-shrink-0" /> : <PauseCircle size={13} className="flex-shrink-0" />} {t('pause_all')}
-        </button>
-        <button
-          onClick={() => router.push('/seller/analytics')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-colors whitespace-nowrap"
-        >
-          <BarChart2 size={13} className="flex-shrink-0" /> {t('nav_analytics')}
+          {pausing ? <Loader2 size={15} className="animate-spin flex-shrink-0" /> : <PauseCircle size={15} className="flex-shrink-0" />} {t('pause_all')}
         </button>
       </div>
     </div>
