@@ -30,7 +30,7 @@ export default function RegisterPage() {
     full_name: '',
     email: '',
     phone: '',
-    country: '',
+    country: COUNTRY_CODES[0].name,
     password: '',
     confirm_password: '',
   })
@@ -180,18 +180,14 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Country */}
+        {/* Country — auto-filled from dial code */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Country</label>
-          <select
-            value={form.country}
-            onChange={e => update('country', e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all bg-white"
-          >
-            <option value="">Select country</option>
-            {COUNTRY_CODES.map(c => <option key={c.iso} value={c.name}>{c.name}</option>)}
-          </select>
+          <div className="flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm">
+            <img src={`/flags/${dialCode.iso}.svg`} alt={form.country} className="w-5 h-3.5 object-cover rounded-sm" />
+            <span className="text-gray-900 font-medium">{form.country}</span>
+            <span className="text-gray-400 text-xs ml-auto">Based on dial code</span>
+          </div>
         </div>
 
         {/* Password */}

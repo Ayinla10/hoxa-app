@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -20,9 +20,20 @@ interface Props {
 
 export default function BuyerTopbar({ fullName, notifCount, title, isSeller = false }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useI18n()
+
+  useEffect(() => {
+    if (!profileOpen) return
+    function handler(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [profileOpen])
 
   const nav = [
     { href: '/dashboard',               icon: LayoutDashboard, key: 'nav_dashboard' as const },
@@ -87,11 +98,35 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </Link>
-            <Link href="/dashboard/profile" className="ml-1">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f5530] flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                {fullName.charAt(0).toUpperCase()}
-              </div>
-            </Link>
+            <div ref={profileRef} className="relative ml-1">
+              <button onClick={() => setProfileOpen(v => !v)} className="focus:outline-none">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f5530] flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                  {fullName.charAt(0).toUpperCase()}
+                </div>
+              </button>
+              {profileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1">
+                    <p className="px-3 py-1.5 text-gray-400 text-xs font-medium truncate border-b border-gray-100 mb-1">{fullName}</p>
+                    <Link href="/dashboard/profile" onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <User size={14} /> {t('nav_profile')}
+                    </Link>
+                    <Link href="/dashboard/settings" onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Settings size={14} /> {t('nav_settings')}
+                    </Link>
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button onClick={logout}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                        <LogOut size={14} /> {t('nav_logout')}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>

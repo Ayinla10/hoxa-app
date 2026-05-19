@@ -16,7 +16,14 @@ export async function getSettings() {
   const supabase = await createClient()
   const { data } = await supabase.from('settings').select('*')
   const map: Record<string, any> = {}
-  for (const row of data ?? []) map[row.key] = row.value
+  for (const row of data ?? []) {
+    let v = row.value
+    // Fix double-encoded JSON strings (from previous bug)
+    if (typeof v === 'string') {
+      try { v = JSON.parse(v) } catch {}
+    }
+    map[row.key] = v
+  }
   return map
 }
 
@@ -29,9 +36,10 @@ export async function updateSetting(key: string, value: any) {
   // Upsert: update if exists, insert if not
   const { data: existing } = await service.from('settings').select('key').eq('key', key).single()
 
+  // Supabase handles jsonb serialization — pass the value directly, not JSON.stringify'd
   if (existing) {
     const { error } = await service.from('settings').update({
-      value: JSON.stringify(value),
+      value,
       updated_by: admin.id,
       updated_at: new Date().toISOString(),
     }).eq('key', key)
@@ -39,7 +47,7 @@ export async function updateSetting(key: string, value: any) {
   } else {
     const { error } = await service.from('settings').insert({
       key,
-      value: JSON.stringify(value),
+      value,
       updated_by: admin.id,
       updated_at: new Date().toISOString(),
     })

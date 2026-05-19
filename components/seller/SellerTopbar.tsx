@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Bell, Search, ChevronDown, Menu, ArrowUpRight } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Bell, Search, ChevronDown, Menu, ArrowUpRight, User, LogOut } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { updateSellerAvailability, getSellerRecord } from '@/actions/listings'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -16,8 +18,11 @@ interface Props {
 export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Props) {
   const [availability, setAvailability] = useState('online')
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const { setMobileOpen } = useSidebar()
   const { t } = useI18n()
+  const router = useRouter()
+  const profileRef = useRef<HTMLDivElement>(null)
 
   const statusOptions = [
     { value: 'online', label: t('online'),  color: 'bg-green-500' },
@@ -31,12 +36,26 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
     getSellerRecord().then(s => { if (s?.availability) setAvailability(s.availability) })
   }, [])
 
+  useEffect(() => {
+    if (!profileOpen) return
+    function handler(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [profileOpen])
+
+  async function handleLogout() {
+    setProfileOpen(false)
+    await createClient().auth.signOut()
+    router.push('/login')
+  }
+
   return (
     <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 lg:px-6 py-3.5">
       <div className="flex items-center justify-between gap-4">
         {/* Left side */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Hamburger — mobile */}
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden p-2 -ml-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
@@ -45,7 +64,6 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
             <Menu size={20} />
           </button>
 
-          {/* Title — desktop shows page title, mobile shows HOXA + SELLER badge */}
           <h1 className="text-gray-900 font-bold text-lg hidden lg:block">{title}</h1>
           <div className="flex items-center gap-2 lg:hidden min-w-0">
             <span className="text-gray-900 font-bold text-base flex-shrink-0">HOXA</span>
@@ -61,12 +79,10 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto flex-shrink-0">
-          {/* Search — desktop only */}
           <button className="hidden lg:flex p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Search">
             <Search size={18} />
           </button>
 
-          {/* Notifications */}
           <Link href="/seller/notifications" className="relative p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Notifications">
             <Bell size={18} />
             {notifCount > 0 && (
@@ -104,12 +120,32 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
             )}
           </div>
 
-          {/* Avatar — links to profile */}
-          <Link href="/seller/profile" className="flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm">
-              {sellerName.charAt(0).toUpperCase()}
-            </div>
-          </Link>
+          {/* Avatar with dropdown */}
+          <div ref={profileRef} className="relative flex-shrink-0">
+            <button onClick={() => setProfileOpen(v => !v)} className="focus:outline-none">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm">
+                {sellerName.charAt(0).toUpperCase()}
+              </div>
+            </button>
+            {profileOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1">
+                  <p className="px-3 py-1.5 text-gray-400 text-xs font-medium truncate border-b border-gray-100 mb-1">{sellerName}</p>
+                  <Link href="/seller/profile" onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <User size={14} /> {t('nav_profile')}
+                  </Link>
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button onClick={handleLogout}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                      <LogOut size={14} /> {t('nav_logout')}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>
