@@ -27,21 +27,27 @@ export default function LoginPage() {
     }
 
     // Get role — admins are NOT allowed to log in here
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
 
-    if (profile?.role === 'admin') {
+      if (profile?.role === 'admin') {
+        await supabase.auth.signOut()
+        setError('Invalid email or password.')
+        setLoading(false)
+        return
+      }
+
+      const redirects: Record<string, string> = {
+        seller: '/seller/dashboard',
+        buyer: '/dashboard',
+      }
+      window.location.href = redirects[profile?.role ?? 'buyer'] ?? '/dashboard'
+    } catch {
       await supabase.auth.signOut()
       setError('Invalid email or password.')
       setLoading(false)
-      return
     }
-
-    const redirects: Record<string, string> = {
-      seller: '/seller/dashboard',
-      buyer: '/dashboard',
-    }
-    window.location.href = redirects[profile?.role ?? 'buyer'] ?? '/dashboard'
   }
 
   return (
