@@ -5,6 +5,7 @@ import { type Lang } from '@/lib/i18n'
 import BuyerSidebar from '@/components/buyer/BuyerSidebar'
 import BuyerTopbar from '@/components/buyer/BuyerTopbar'
 import BuyerBottomNav from '@/components/buyer/BuyerBottomNav'
+import SessionGuard from '@/components/SessionGuard'
 import { cookies } from 'next/headers'
 
 export default async function BuyerLayout({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export default async function BuyerLayout({ children }: { children: React.ReactN
           </main>
         </div>
         <BuyerBottomNav />
+        <SessionGuard />
       </div>
     </I18nProvider>
   )

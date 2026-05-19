@@ -8,6 +8,7 @@ import SellerSidebar from '@/components/seller/SellerSidebar'
 import SellerShell from '@/components/seller/SellerShell'
 import BottomNav from '@/components/seller/BottomNav'
 import RealtimeSubscriber from '@/components/seller/RealtimeSubscriber'
+import SessionGuard from '@/components/SessionGuard'
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -45,6 +46,7 @@ export default async function SellerLayout({ children }: { children: React.React
             {children}
           </SellerShell>
           <BottomNav />
+          <SessionGuard />
         </div>
       </SidebarProvider>
     </I18nProvider>

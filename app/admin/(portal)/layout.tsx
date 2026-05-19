@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
+import SessionGuard from '@/components/SessionGuard'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -28,6 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {children}
       </div>
       <AdminBottomNav />
+      <SessionGuard />
     </div>
   )
 }
