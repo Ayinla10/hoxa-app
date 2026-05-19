@@ -30,6 +30,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        {/* Capture install prompt BEFORE React hydrates — prevents race condition */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.__pwaPrompt = null;
+          window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.__pwaPrompt = e;
+          });
+        `}} />
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         {children}
