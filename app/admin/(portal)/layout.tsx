@@ -1,9 +1,15 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
 import SessionGuard from '@/components/SessionGuard'
 import { getSettings } from '@/actions/settings'
+
+export const metadata: Metadata = {
+  title: 'HOXA Admin',
+  manifest: '/admin-manifest.json',
+}
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()

@@ -29,12 +29,6 @@ export default function PWAInstall() {
         .catch((err) => console.log('SW registration failed:', err))
     }
 
-    // Swap manifest for admin pages
-    const link = document.querySelector('link[rel="manifest"]')
-    if (link) {
-      link.setAttribute('href', isAdmin ? '/admin-manifest.json' : '/manifest.json')
-    }
-
     // Capture install prompt if browser fires it
     const promptHandler = (e: Event) => {
       e.preventDefault()

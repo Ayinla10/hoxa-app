@@ -29,7 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" data-scroll-behavior="smooth">
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
