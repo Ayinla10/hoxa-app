@@ -57,6 +57,13 @@ export default function PWAInstall() {
     }
     window.addEventListener('appinstalled', installedHandler)
 
+    // One-time reset of dismiss flags (remove this block after testing)
+    if (!localStorage.getItem('pwa-dismiss-reset-v1')) {
+      localStorage.removeItem('pwa-dismissed')
+      localStorage.removeItem('pwa-dismissed-admin')
+      localStorage.setItem('pwa-dismiss-reset-v1', '1')
+    }
+
     // Don't show if already installed (standalone mode)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
       || (navigator as any).standalone === true
