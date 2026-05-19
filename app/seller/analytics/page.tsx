@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import SellerTopbar from '@/components/seller/SellerTopbar'
@@ -9,17 +9,13 @@ import {
 import { t, type Lang } from '@/lib/i18n'
 
 export default async function SellerAnalyticsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ user, supabase }, profile, cookieStore] = await Promise.all([
+    getAuthUser(),
+    getProfile(),
+    cookies(),
+  ])
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, language')
-    .eq('id', user.id)
-    .single()
-
-  const cookieStore = await cookies()
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
 
   const { data: seller } = await supabase

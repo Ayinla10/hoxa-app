@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthUser } from '@/lib/supabase/server'
 
 export async function createNotification(
   userId: string,
@@ -13,8 +13,7 @@ export async function createNotification(
 }
 
 export async function markNotificationRead(id: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const service = createServiceClient()
@@ -29,8 +28,7 @@ export async function markNotificationRead(id: string) {
 }
 
 export async function markAllRead() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const service = createServiceClient()

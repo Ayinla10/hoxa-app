@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import SellerTopbar from '@/components/seller/SellerTopbar'
@@ -6,21 +6,13 @@ import SellerTransactionsClient from './SellerTransactionsClient'
 import { t, type Lang } from '@/lib/i18n'
 
 export default async function SellerTransactionsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, language')
-    .eq('id', user.id)
-    .single()
-
-  const { data: seller } = await supabase
-    .from('sellers')
-    .select('id')
-    .eq('user_id', user.id)
-    .single()
+  const [profile, { data: seller }] = await Promise.all([
+    getProfile(),
+    supabase.from('sellers').select('id').eq('user_id', user.id).single(),
+  ])
 
   if (!seller) redirect('/dashboard')
 

@@ -1,12 +1,11 @@
 'use server'
 
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient, getAuthUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createNotification } from './notifications'
 
 export async function initiateTransaction(offerId: string, fromAmount: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { data: offer, error: offerErr } = await supabase
@@ -68,8 +67,7 @@ export async function initiateTransaction(offerId: string, fromAmount: number) {
 }
 
 export async function acceptTransaction(transactionId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { data: txn } = await supabase
@@ -95,8 +93,7 @@ export async function acceptTransaction(transactionId: string) {
 }
 
 export async function rejectTransaction(transactionId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { data: txn } = await supabase
@@ -136,8 +133,7 @@ export async function submitPaymentProof(
   reference: string,
   notes: string
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { data: txn } = await supabase
@@ -167,8 +163,7 @@ export async function submitPaymentProof(
 }
 
 export async function verifyPayment(transactionId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { data: callerProfile } = await supabase
@@ -201,8 +196,7 @@ export async function verifyPayment(transactionId: string) {
 }
 
 export async function markFulfilled(transactionId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { data: txn } = await supabase
@@ -246,8 +240,7 @@ export async function markFulfilled(transactionId: string) {
 }
 
 export async function getBuyerTransactions() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return []
 
   const { data } = await supabase
@@ -260,8 +253,7 @@ export async function getBuyerTransactions() {
 }
 
 export async function getTransactionById(id: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return null
 
   const { data } = await supabase
@@ -280,8 +272,7 @@ export async function getTransactionById(id: string) {
 }
 
 export async function getSellerTransactions() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return []
 
   const { data: seller } = await supabase
@@ -301,8 +292,7 @@ export async function getSellerTransactions() {
 }
 
 export async function getSellerPendingRequests() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return []
 
   const { data: seller } = await supabase

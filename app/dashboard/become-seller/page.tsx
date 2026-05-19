@@ -1,21 +1,20 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { getSettings } from '@/actions/settings'
 import BecomeSellerClient from './BecomeSellerClient'
 
 export default async function BecomeSellerPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ user, supabase }, profile, settings] = await Promise.all([
+    getAuthUser(),
+    getProfile(),
+    getSettings(),
+  ])
   if (!user) redirect('/login')
-
-  const { data: profile } = await supabase.from('profiles').select('full_name, country').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
   // Check if already a seller
   const { data: seller } = await supabase.from('sellers').select('id, status').eq('user_id', user.id).single()
   if (seller?.status === 'approved') redirect('/seller/dashboard')
-
-  const settings = await getSettings()
   const momoNetworks: Record<string, string[]> = (settings['momo_networks'] && typeof settings['momo_networks'] === 'object')
     ? settings['momo_networks']
     : {}

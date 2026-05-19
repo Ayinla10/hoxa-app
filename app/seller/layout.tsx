@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { I18nProvider } from '@/lib/i18n-context'
 import { type Lang } from '@/lib/i18n'
@@ -12,27 +12,31 @@ import SessionGuard from '@/components/SessionGuard'
 import { getSettings } from '@/actions/settings'
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  // Fetch profile, seller, settings, cookies all in parallel
+  const [profile, sellerResult, settings, cookieStore] = await Promise.all([
+    getProfile(),
+    supabase.from('sellers').select('id, status, availability, completion_rate, timeout_count, rejection_count').eq('user_id', user.id).single(),
+    getSettings(),
+    cookies(),
+  ])
+
   if (!profile) {
     await supabase.auth.signOut()
     redirect('/login')
   }
   if (profile.role !== 'seller' && profile.role !== 'admin') redirect('/dashboard')
 
-  const { data: seller } = await supabase.from('sellers').select('id, status, availability, completion_rate, timeout_count, rejection_count').eq('user_id', user.id).single()
+  const seller = sellerResult.data
   if (!seller || seller.status !== 'approved') redirect('/dashboard')
 
   const score = Math.min(100, Math.round((seller.completion_rate * 0.6) + (Math.max(0, 100 - (seller.timeout_count * 5)) * 0.2) + (Math.max(0, 100 - (seller.rejection_count * 3)) * 0.2)))
 
-  const cookieStore = await cookies()
   const cookieLang = cookieStore.get('hoxa_lang')?.value
   const lang = (profile?.language ?? cookieLang ?? 'en') as Lang
 
-  const settings = await getSettings()
   const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
 
   return (

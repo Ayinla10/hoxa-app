@@ -1,12 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const ROLE_HOME: Record<string, string> = {
-  buyer: '/dashboard',
-  seller: '/seller/dashboard',
-  admin: '/admin/dashboard',
-}
-
 // Exact public paths (not prefix-matched for /admin)
 const PUBLIC_EXACT = ['/admin']
 const PUBLIC_PREFIX = ['/login', '/register', '/forgot-password']
@@ -40,14 +34,31 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Redirect logged-in users away from public pages to their home
+  // BUT: admins are ONLY redirected from admin login page, never from user login
+  //       users are ONLY redirected from user login pages, never from admin login
   if (user && isPublic) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    const home = ROLE_HOME[profile?.role ?? 'buyer'] ?? '/dashboard'
-    return NextResponse.redirect(new URL(home, request.url))
+    const role = profile?.role ?? 'buyer'
+
+    if (role === 'admin') {
+      // Admin visiting /admin login → redirect to admin dashboard
+      // Admin visiting /login or /register → do NOT redirect (they don't belong there)
+      if (pathname === '/admin') {
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+      }
+      // Let them stay on /login etc — the login form will reject them with a clear message
+    } else {
+      // User visiting /login or /register → redirect to their dashboard
+      // User visiting /admin → do NOT redirect (admin login will reject them)
+      if (pathname !== '/admin') {
+        const home = role === 'seller' ? '/seller/dashboard' : '/dashboard'
+        return NextResponse.redirect(new URL(home, request.url))
+      }
+    }
   }
 
   // Protect private routes — /admin/dashboard etc (not /admin itself)
@@ -64,27 +75,33 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(loginPath, request.url))
   }
 
-  // Protect admin sub-routes
-  if (pathname.startsWith('/admin/') && user) {
+  // Protect admin and seller sub-routes — single profile query
+  const needsRoleCheck = (pathname.startsWith('/admin/') || pathname.startsWith('/seller')) && user
+  if (needsRoleCheck) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    if (profile?.role !== 'admin') {
+    const role = profile?.role
+
+    if (pathname.startsWith('/admin/') && role !== 'admin') {
       return NextResponse.redirect(new URL('/admin', request.url))
+    }
+    if (pathname.startsWith('/seller') && role !== 'seller' && role !== 'admin') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
-  // Protect seller routes
-  if (pathname.startsWith('/seller') && user) {
+  // Block admins from accessing user dashboard routes
+  if (pathname.startsWith('/dashboard') && user) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    if (profile?.role !== 'seller' && profile?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (profile?.role === 'admin') {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     }
   }
 

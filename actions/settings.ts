@@ -1,18 +1,20 @@
 'use server'
 
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient, getAuthUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cache } from 'react'
 
 async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return null
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return null
   return user
 }
 
-export async function getSettings() {
+// React.cache() ensures getSettings is only called once per request,
+// even if multiple layouts/components call it.
+export const getSettings = cache(async () => {
   const supabase = await createClient()
   const { data } = await supabase.from('settings').select('*')
   const map: Record<string, any> = {}
@@ -25,7 +27,7 @@ export async function getSettings() {
     map[row.key] = v
   }
   return map
-}
+})
 
 export async function updateSetting(key: string, value: any) {
   const admin = await requireAdmin()

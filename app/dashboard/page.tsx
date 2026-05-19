@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile, createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getBuyerTransactions } from '@/actions/transactions'
@@ -28,36 +28,40 @@ function getStatus(s: string) {
 }
 
 export default async function BuyerDashboard() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // getProfile() and getAuthUser() are cached per request — these reuse
+  // the same data already fetched by the layout (zero extra DB calls)
+  const [profile, { user, supabase }] = await Promise.all([
+    getProfile(),
+    getAuthUser(),
+  ])
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-
-  const [transactions, sellerStatus] = await Promise.all([
+  // All three data fetches in parallel
+  const [transactions, sellerStatus, sellersResult] = await Promise.all([
     getBuyerTransactions(),
     getSellerApplicationStatus(),
+    supabase
+      .from('offers')
+      .select(`
+        id, from_currency, to_currency, rate, min_amount, max_amount,
+        sellers!inner (
+          id, status, completion_rate, avg_response_seconds, total_transactions,
+          profiles ( full_name, country )
+        )
+      `)
+      .eq('is_available', true)
+      .eq('sellers.status', 'approved')
+      .order('rate', { ascending: true })
+      .limit(3),
   ])
+
+  const sellers = sellersResult.data
 
   const completed = transactions.filter((t: any) => t.status === 'completed')
   const active    = transactions.filter((t: any) => !['completed', 'cancelled', 'seller_rejected', 'seller_timeout'].includes(t.status))
   const pending   = transactions.filter((t: any) => t.status === 'payment_submitted')
   const recent    = transactions.slice(0, 5)
   const avgMins   = completed.length > 0 ? 8 : 0
-
-  const { data: sellers } = await supabase
-    .from('offers')
-    .select(`
-      id, from_currency, to_currency, rate, min_amount, max_amount,
-      sellers!inner (
-        id, status, completion_rate, avg_response_seconds, total_transactions,
-        profiles ( full_name, country )
-      )
-    `)
-    .eq('is_available', true)
-    .eq('sellers.status', 'approved')
-    .order('rate', { ascending: true })
-    .limit(3)
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'

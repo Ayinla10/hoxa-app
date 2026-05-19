@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, ChevronDown } from 'lucide-react'
 
@@ -25,7 +24,6 @@ const COUNTRY_CODES = [
 ]
 
 export default function RegisterPage() {
-  const router = useRouter()
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -69,7 +67,9 @@ export default function RegisterPage() {
 
     const fullPhone = `${dialCode.dial}${form.phone.replace(/^0+/, '')}`
 
-    const { error: authError } = await supabase.auth.signUp({
+    // Check if this email already exists as an admin account
+    // We attempt sign-up first — if it fails with "already registered" we show a generic error
+    const { data: signUpData, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -88,8 +88,19 @@ export default function RegisterPage() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    // If the user was created, verify they aren't somehow an admin
+    // (this catches edge cases with pre-existing auth accounts)
+    if (signUpData?.user) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', signUpData.user.id).single()
+      if (profile?.role === 'admin') {
+        await supabase.auth.signOut()
+        setError('This email is not available for user registration.')
+        setLoading(false)
+        return
+      }
+    }
+
+    window.location.href = '/dashboard'
   }
 
   return (

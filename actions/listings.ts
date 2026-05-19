@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export type OfferInput = {
@@ -14,8 +14,7 @@ export type OfferInput = {
 }
 
 async function requireSeller() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { supabase, user: null, seller: null }
   const { data: seller } = await supabase.from('sellers').select('id, status').eq('user_id', user.id).single()
   return { supabase, user, seller }
@@ -34,8 +33,7 @@ async function requireSellerOwnsOffer(offerId: string) {
 }
 
 export async function getSellerRecord() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return null
   const { data } = await supabase.from('sellers').select('*').eq('user_id', user.id).single()
   return data

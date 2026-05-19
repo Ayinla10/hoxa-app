@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
@@ -32,17 +32,14 @@ function timeAgo(date: string) {
 }
 
 export default async function SellerDashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // getAuthUser() and getProfile() are cached — reuses layout's data (zero extra DB calls)
+  const [{ user, supabase }, profile, cookieStore] = await Promise.all([
+    getAuthUser(),
+    getProfile(),
+    cookies(),
+  ])
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, language')
-    .eq('id', user.id)
-    .single()
-
-  const cookieStore = await cookies()
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
 
   const { data: seller } = await supabase

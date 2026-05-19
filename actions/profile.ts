@@ -1,14 +1,13 @@
 'use server'
 
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient, getAuthUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createNotification } from './notifications'
 import { cookies } from 'next/headers'
 import type { Lang } from '@/lib/i18n'
 
 export async function setLanguageAction(lang: Lang) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return
 
   await supabase.from('profiles').update({ language: lang }).eq('id', user.id)
@@ -24,8 +23,7 @@ export async function updateProfile(data: {
   phone?: string
   country?: string
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase.from('profiles').update(data).eq('id', user.id)
@@ -41,8 +39,7 @@ export async function applyAsSeller(data: {
   currencies: string[]
   daily_limit: number
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
   // Check if already applied
@@ -72,16 +69,14 @@ export async function applyAsSeller(data: {
 }
 
 export async function getSellerApplicationStatus() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return null
   const { data } = await supabase.from('sellers').select('status').eq('user_id', user.id).single()
   return data?.status ?? null
 }
 
 async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return null
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return null

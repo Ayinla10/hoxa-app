@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { MoreVertical, ShieldCheck, ShieldOff, Store, User, Loader2, Trash2 } from 'lucide-react'
+import { MoreVertical, Store, User, Loader2, Trash2 } from 'lucide-react'
 import { setUserRole, deleteUser } from '@/actions/admin'
 import { useRouter } from 'next/navigation'
 
@@ -26,7 +26,7 @@ export default function UserActionsMenu({
     if (!btnRef.current) return
     const rect = btnRef.current.getBoundingClientRect()
     const menuW = 176 // w-44 = 11rem = 176px
-    const menuH = 260 // estimated max height
+    const menuH = 200 // estimated max height
     const vw = window.innerWidth
     const vh = window.innerHeight
 
@@ -89,11 +89,11 @@ export default function UserActionsMenu({
     setLoading(false)
   }
 
-  const actions = [
-    { role: 'admin', label: 'Make Admin', icon: ShieldCheck, show: currentRole !== 'admin' },
+  // Admin accounts are completely separate — no role change options for admins
+  // For non-admin users, only allow switching between buyer and seller
+  const actions = currentRole === 'admin' ? [] : [
     { role: 'seller', label: 'Make Seller', icon: Store, show: currentRole !== 'seller' },
     { role: 'buyer', label: 'Set as Buyer', icon: User, show: currentRole !== 'buyer' },
-    { role: 'revoke_admin', label: 'Revoke Admin', icon: ShieldOff, show: currentRole === 'admin', danger: true },
   ].filter(a => a.show)
 
   const menu = open && menuPos ? createPortal(
@@ -106,27 +106,30 @@ export default function UserActionsMenu({
         style={{ top: menuPos.top, left: menuPos.left }}
       >
         <p className="px-3 py-1.5 text-gray-400 text-xs font-medium truncate border-b border-gray-100 mb-1">{userName}</p>
+        {currentRole === 'admin' && (
+          <p className="px-3 py-2 text-gray-400 text-xs italic">Admin accounts cannot be modified</p>
+        )}
         {actions.map(a => (
           <button
             key={a.role}
             onClick={() => changeRole(a.role)}
-            className={`flex items-center gap-2.5 w-full px-3 py-2 hover:bg-gray-50 transition-colors text-left ${
-              a.danger ? 'text-red-500' : 'text-gray-700'
-            }`}
+            className="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-gray-50 transition-colors text-left text-gray-700"
           >
             <a.icon size={14} />
             {a.label}
           </button>
         ))}
-        <div className="border-t border-gray-100 mt-1 pt-1">
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-red-50 transition-colors text-left text-red-500"
-          >
-            <Trash2 size={14} />
-            Delete User
-          </button>
-        </div>
+        {currentRole !== 'admin' && (
+          <div className="border-t border-gray-100 mt-1 pt-1">
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-red-50 transition-colors text-left text-red-500"
+            >
+              <Trash2 size={14} />
+              Delete User
+            </button>
+          </div>
+        )}
       </div>
     </>,
     document.body

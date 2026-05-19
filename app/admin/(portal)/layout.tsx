@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile, createServiceClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
 import SessionGuard from '@/components/SessionGuard'
@@ -12,29 +12,30 @@ export const metadata: Metadata = {
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) redirect('/admin')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  // Fetch profile, pending escrow count, and settings in parallel
+  const [profile, pendingResult, settings] = await Promise.all([
+    getProfile(),
+    createServiceClient()
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'payment_submitted'),
+    getSettings(),
+  ])
+
   if (!profile) {
     await supabase.auth.signOut()
     redirect('/admin')
   }
   if (profile.role !== 'admin') redirect('/dashboard')
 
-  const service = createServiceClient()
-  const { count: pendingEscrow } = await service
-    .from('transactions')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'payment_submitted')
-
-  const settings = await getSettings()
   const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
 
   return (
     <div className="min-h-screen bg-[#F7F9F8]">
-      <AdminSidebar adminName={profile?.full_name ?? 'Admin'} pendingEscrow={pendingEscrow ?? 0} />
+      <AdminSidebar adminName={profile?.full_name ?? 'Admin'} pendingEscrow={pendingResult.count ?? 0} />
       <div className="lg:pl-64 pb-20 lg:pb-0">
         {children}
       </div>

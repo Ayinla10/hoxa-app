@@ -1,21 +1,22 @@
 import { getSellerPendingRequests } from '@/actions/transactions'
 import SellerTopbar from '@/components/seller/SellerTopbar'
 import PendingRequestCard from '@/components/seller/PendingRequestCard'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { Clock } from 'lucide-react'
 import { t, type Lang } from '@/lib/i18n'
 
 export default async function SellerRequestsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ user }, profile, cookieStore, requests] = await Promise.all([
+    getAuthUser(),
+    getProfile(),
+    cookies(),
+    getSellerPendingRequests(),
+  ])
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('full_name, language').eq('id', user.id).single()
-  const cookieStore = await cookies()
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
-  const requests = await getSellerPendingRequests()
 
   return (
     <>

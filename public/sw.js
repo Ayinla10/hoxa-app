@@ -3,7 +3,6 @@ const CACHE_NAME = 'hoxa-v1';
 
 // Assets to pre-cache on install
 const PRECACHE_ASSETS = [
-  '/',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -31,6 +30,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+
+  // Skip navigation requests — let the browser handle redirects from proxy/middleware
+  if (event.request.mode === 'navigate') return;
 
   // Skip API / auth requests
   const url = new URL(event.request.url);

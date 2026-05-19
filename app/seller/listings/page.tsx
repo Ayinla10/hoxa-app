@@ -1,22 +1,23 @@
 import { getSellerOffers, getSellerRecord } from '@/actions/listings'
 import SellerTopbar from '@/components/seller/SellerTopbar'
 import SellerListingsClient from './client'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { FileText } from 'lucide-react'
 import { t, type Lang } from '@/lib/i18n'
 
 export default async function SellerListingsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ user }, profile, cookieStore, seller, offers] = await Promise.all([
+    getAuthUser(),
+    getProfile(),
+    cookies(),
+    getSellerRecord(),
+    getSellerOffers(),
+  ])
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('full_name, language').eq('id', user.id).single()
-  const cookieStore = await cookies()
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
-  const seller = await getSellerRecord()
-  const offers = await getSellerOffers()
 
   if (!seller || seller.status !== 'approved') {
     return (

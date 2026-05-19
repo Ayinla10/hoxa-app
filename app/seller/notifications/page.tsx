@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import SellerTopbar from '@/components/seller/SellerTopbar'
@@ -6,15 +6,8 @@ import NotificationsClient from './NotificationsClient'
 import { t, type Lang } from '@/lib/i18n'
 
 export default async function SellerNotificationsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ user, supabase }, profile] = await Promise.all([getAuthUser(), getProfile()])
   if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, language')
-    .eq('id', user.id)
-    .single()
 
   const { data: notifications } = await supabase
     .from('notifications')

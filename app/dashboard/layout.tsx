@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser, getProfile } from '@/lib/supabase/server'
 import { I18nProvider } from '@/lib/i18n-context'
 import { type Lang } from '@/lib/i18n'
 import BuyerSidebar from '@/components/buyer/BuyerSidebar'
@@ -10,34 +10,36 @@ import { getSettings } from '@/actions/settings'
 import { cookies } from 'next/headers'
 
 export default async function BuyerLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  // Fetch profile, seller status, notifications, settings, and cookies in parallel
+  const [profile, cookieStore, settings] = await Promise.all([
+    getProfile(),
+    cookies(),
+    getSettings(),
+  ])
+
   if (!profile) {
-    // Profile was deleted — sign out the orphaned auth session
     await supabase.auth.signOut()
     redirect('/login')
   }
   if (profile.role === 'admin') redirect('/admin/dashboard')
 
-  // Check if this user also has an approved seller account
-  const { data: seller } = await supabase.from('sellers').select('id, status').eq('user_id', user.id).single()
-  const isSeller = seller?.status === 'approved'
+  // These depend on profile being valid — run in parallel
+  const [sellerResult, notifResult] = await Promise.all([
+    supabase.from('sellers').select('id, status').eq('user_id', user.id).single(),
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
+  ])
 
-  const { data: notifications } = await supabase
-    .from('notifications').select('id').eq('user_id', user.id).eq('read', false)
+  const isSeller = sellerResult.data?.status === 'approved'
+  const notifCount = notifResult.count ?? 0
 
   // Language: profile preference > cookie > default 'en'
-  const cookieStore = await cookies()
   const cookieLang = cookieStore.get('hoxa_lang')?.value
   const lang = (profile?.language ?? cookieLang ?? 'en') as Lang
 
-  const notifCount = notifications?.length ?? 0
   const fullName = profile?.full_name ?? ''
-
-  const settings = await getSettings()
   const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
 
   return (
