@@ -49,10 +49,11 @@ export default function SellerSidebar({ sellerName, score, online }: Props) {
       {/* Header */}
       <div className={`px-4 py-4 border-b border-white/10 ${collapsed && !mobileOpen ? 'px-2' : ''}`}>
         <div className="flex items-center gap-2.5">
-          <img src="/icons/icon-192.png" alt="HOXA" className="w-8 h-8 rounded-lg flex-shrink-0" />
-          {(!collapsed || mobileOpen) && (
+          {collapsed && !mobileOpen ? (
+            <img src="/icons/icon-192.png" alt="HOXA" className="w-8 h-8 rounded-lg flex-shrink-0" />
+          ) : (
             <>
-              <span className="text-white font-bold text-lg tracking-tight">HOXA</span>
+              <img src="/hoxa-logo-white.png" alt="HOXA" className="h-6 flex-shrink-0" />
               <span className="text-[10px] text-[#177945] font-semibold bg-[#177945]/20 px-2 py-0.5 rounded-full">SELLER</span>
               <div className="ml-auto">
                 <LanguageSwitcher variant="sidebar" />
@@ -151,11 +152,7 @@ export default function SellerSidebar({ sellerName, score, online }: Props) {
             {/* Drawer header — gradient */}
             <div className="bg-gradient-to-br from-[#177945] to-[#0f5530] px-5 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img src="/icons/icon-192.png" alt="HOXA" className="w-9 h-9 rounded-xl" />
-                <div>
-                  <span className="text-white font-bold text-base">HOXA</span>
-                  <p className="text-white/55 text-[10px] mt-0.5">Seller Portal</p>
-                </div>
+                <img src="/hoxa-logo-white.png" alt="HOXA" className="h-7" />
               </div>
               <button
                 onClick={() => setMobileOpen(false)}

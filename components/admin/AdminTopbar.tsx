@@ -65,8 +65,8 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <img src="/icons/icon-192.png" alt="HOXA" className="w-7 h-7 rounded-lg" />
-              <span className="text-gray-900 font-bold text-sm">HOXA Admin</span>
+              <img src="/hoxa-logo.png" alt="HOXA" className="h-6" />
+              <span className="text-[9px] text-white font-bold bg-[#18824a] px-1.5 py-0.5 rounded-md tracking-wider">ADMIN</span>
             </div>
           </div>
 
@@ -109,14 +109,7 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
         {/* Drawer header */}
         <div className="bg-gradient-to-br from-[#18824a] to-[#0f6a3d] px-5 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/icons/icon-192.png" alt="HOXA" className="w-9 h-9 rounded-xl" />
-            <div>
-              <span className="text-white font-bold text-base">HOXA</span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
-                <span className="text-white/60 text-[10px]">Production</span>
-              </div>
-            </div>
+            <img src="/hoxa-logo-white.png" alt="HOXA" className="h-7" />
           </div>
           <button
             onClick={() => setDrawerOpen(false)}

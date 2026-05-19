@@ -63,9 +63,9 @@ export default function PWAInstall() {
   if (!showBanner) return null
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-[9999] animate-in slide-in-from-bottom duration-300 lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-sm">
+    <div className="fixed top-3 left-4 right-4 z-[9999] animate-in slide-in-from-top duration-300 lg:left-auto lg:right-6 lg:max-w-sm">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 flex items-center gap-3">
-        <img src="/icons/icon-192.png" alt="HOXA" className="w-12 h-12 rounded-xl flex-shrink-0" />
+        <img src="/icons/icon-192.png" alt="HOXA" className="w-12 h-12 rounded-xl flex-shrink-0 bg-white" />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 text-sm">Install HOXA</p>
           <p className="text-xs text-gray-500 mt-0.5">Add to home screen for quick access</p>

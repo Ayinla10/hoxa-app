@@ -41,14 +41,7 @@ export default function AdminSidebar({ adminName, pendingEscrow = 0 }: { adminNa
       {/* Gradient header */}
       <div className="px-5 py-5 bg-gradient-to-br from-[#18824a] to-[#0f6a3d]">
         <div className="flex items-center gap-3">
-          <img src="/icons/icon-192.png" alt="HOXA" className="w-9 h-9 rounded-xl flex-shrink-0" />
-          <div>
-            <span className="text-white font-bold text-base tracking-tight">HOXA</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
-              <span className="text-[10px] text-white/60 font-medium">Production</span>
-            </div>
-          </div>
+          <img src="/hoxa-logo-white.png" alt="HOXA" className="h-7 flex-shrink-0" />
           <span className="ml-auto text-[9px] text-white font-bold bg-white/20 border border-white/25 px-1.5 py-0.5 rounded-md tracking-wider">ADMIN</span>
         </div>
       </div>

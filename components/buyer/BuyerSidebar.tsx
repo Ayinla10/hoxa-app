@@ -32,8 +32,7 @@ export default function BuyerSidebar({ fullName, notifCount }: Props) {
     <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-[#0B1F16] fixed top-0 left-0 z-30">
       <div className="px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-2.5">
-          <img src="/icons/icon-192.png" alt="HOXA" className="w-8 h-8 rounded-lg flex-shrink-0" />
-          <span className="text-white font-bold text-lg tracking-tight">HOXA</span>
+          <img src="/hoxa-logo-white.png" alt="HOXA" className="h-6 flex-shrink-0" />
           <span className="text-[10px] text-[#22C55E] font-semibold bg-[#177945]/20 px-2 py-0.5 rounded-full">BUYER</span>
           <div className="ml-auto">
             <LanguageSwitcher variant="sidebar" />

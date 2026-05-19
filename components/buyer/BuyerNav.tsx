@@ -32,8 +32,7 @@ export default function BuyerNav({ fullName, notifCount }: Props) {
       <div className="max-w-7xl mx-auto px-4 lg:px-8 flex items-center justify-between h-14">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-2">
-          <img src="/icons/icon-192.png" alt="HOXA" className="w-7 h-7 rounded-lg" />
-          <span className="font-bold text-gray-900 hidden sm:block">HOXA</span>
+          <img src="/hoxa-logo.png" alt="HOXA" className="h-6" />
         </Link>
 
         {/* Desktop nav links */}

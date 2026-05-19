@@ -4,11 +4,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3">
-            <img src="/icons/icon-192.png" alt="HOXA" className="w-10 h-10 rounded-xl shadow-lg" />
-            <span className="text-white font-bold text-2xl tracking-tight">HOXA</span>
-          </div>
-          <p className="text-white/50 text-sm mt-2">Secure P2P Currency Exchange</p>
+          <img src="/hoxa-logo-white.png" alt="HOXA" className="h-10 mx-auto" />
+          <p className="text-white/50 text-sm mt-3">Secure P2P Currency Exchange</p>
         </div>
         {children}
       </div>

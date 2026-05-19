@@ -66,7 +66,7 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
 
           <h1 className="text-gray-900 font-bold text-lg hidden lg:block">{title}</h1>
           <div className="flex items-center gap-2 lg:hidden min-w-0">
-            <span className="text-gray-900 font-bold text-base flex-shrink-0">HOXA</span>
+            <img src="/hoxa-logo.png" alt="HOXA" className="h-6 flex-shrink-0" />
             <Link
               href="/dashboard"
               className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#177945]/10 border border-[#177945]/20 text-[#177945] text-[10px] font-bold tracking-wide hover:bg-[#177945]/20 active:bg-[#177945]/25 transition-colors flex-shrink-0"

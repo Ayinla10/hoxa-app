@@ -69,8 +69,7 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <img src="/icons/icon-192.png" alt="HOXA" className="w-7 h-7 rounded-lg flex-shrink-0" />
-              <span className="font-bold text-gray-900 text-sm flex-shrink-0">HOXA</span>
+              <img src="/hoxa-logo.png" alt="HOXA" className="h-6 flex-shrink-0" />
               {isSeller && (
                 <Link
                   href="/seller/dashboard"
@@ -143,11 +142,7 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
         {/* Drawer header — gradient */}
         <div className="bg-gradient-to-br from-[#18824a] to-[#0f5530] px-5 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/icons/icon-192.png" alt="HOXA" className="w-9 h-9 rounded-xl" />
-            <div>
-              <span className="text-white font-bold text-base">HOXA</span>
-              <p className="text-white/55 text-[10px] mt-0.5">Buyer Portal</p>
-            </div>
+            <img src="/hoxa-logo-white.png" alt="HOXA" className="h-7" />
           </div>
           <button
             onClick={() => setDrawerOpen(false)}
