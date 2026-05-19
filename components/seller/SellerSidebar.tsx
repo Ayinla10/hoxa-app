@@ -49,9 +49,7 @@ export default function SellerSidebar({ sellerName, score, online }: Props) {
       {/* Header */}
       <div className={`px-4 py-4 border-b border-white/10 ${collapsed && !mobileOpen ? 'px-2' : ''}`}>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">H</span>
-          </div>
+          <img src="/icons/icon-192.png" alt="HOXA" className="w-8 h-8 rounded-lg flex-shrink-0" />
           {(!collapsed || mobileOpen) && (
             <>
               <span className="text-white font-bold text-lg tracking-tight">HOXA</span>
@@ -153,9 +151,7 @@ export default function SellerSidebar({ sellerName, score, online }: Props) {
             {/* Drawer header — gradient */}
             <div className="bg-gradient-to-br from-[#177945] to-[#0f5530] px-5 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center">
-                  <span className="text-white font-black text-sm">H</span>
-                </div>
+                <img src="/icons/icon-192.png" alt="HOXA" className="w-9 h-9 rounded-xl" />
                 <div>
                   <span className="text-white font-bold text-base">HOXA</span>
                   <p className="text-white/55 text-[10px] mt-0.5">Seller Portal</p>

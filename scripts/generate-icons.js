@@ -1,71 +1,100 @@
-// Generate PWA icons using sharp (bundled with Next.js)
+// Generate PWA icons by cropping the cauris (cowrie shell) from the HOXA logo
 // Run: node scripts/generate-icons.js
 
-const fs = require('fs');
 const path = require('path');
-
-function createSVG(size, maskable = false) {
-  const padding = maskable ? Math.round(size * 0.2) : 0;
-  const innerSize = size - padding * 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const letterSize = Math.round(innerSize * 0.45);
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <rect width="${size}" height="${size}" fill="${maskable ? '#18824a' : 'none'}" rx="${maskable ? 0 : Math.round(size * 0.18)}"/>
-  <rect x="${padding}" y="${padding}" width="${innerSize}" height="${innerSize}" rx="${Math.round(innerSize * 0.18)}" fill="url(#grad)"/>
-  <defs>
-    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#18824a"/>
-      <stop offset="100%" stop-color="#0f5530"/>
-    </linearGradient>
-  </defs>
-  <text x="${cx}" y="${cy}" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="${letterSize}" fill="white" text-anchor="middle" dominant-baseline="central">H</text>
-</svg>`;
-}
+const sharp = require('sharp');
 
 async function main() {
-  // Try to load sharp from Next.js's dependency
-  let sharp;
-  try {
-    sharp = require('sharp');
-  } catch {
-    try {
-      sharp = require(require.resolve('sharp', { paths: [path.join(__dirname, '..', 'node_modules', 'next')] }));
-    } catch {
-      console.error('sharp not found. Install it: npm install sharp');
-      process.exit(1);
+  const logoPath = path.join(__dirname, '..', 'hoxa-logo.jpeg');
+  const outDir = path.join(__dirname, '..', 'public', 'icons');
+
+  // Get logo dimensions
+  const meta = await sharp(logoPath).metadata();
+  console.log(`Logo: ${meta.width}x${meta.height}`);
+
+  // The cauris (cowrie shell "O") is roughly centered in the logo
+  // Logo is 1500x491, the cauris circle spans roughly x:430-710, y:45-440
+  // We want a square crop centered on the cauris
+  const caurisCenter = { x: 595, y: 245 };
+  const caurisRadius = 185; // half the shell circle diameter
+  const cropSize = caurisRadius * 2 + 20; // add small padding
+
+  const left = Math.max(0, Math.round(caurisCenter.x - cropSize / 2));
+  const top = Math.max(0, Math.round(caurisCenter.y - cropSize / 2));
+
+  console.log(`Cropping cauris: left=${left}, top=${top}, size=${cropSize}`);
+
+  // Crop the cauris from logo
+  const caurisCropped = await sharp(logoPath)
+    .extract({ left, top, width: cropSize, height: Math.min(cropSize, meta.height - top) })
+    .toBuffer();
+
+  // Check what we got
+  const croppedMeta = await sharp(caurisCropped).metadata();
+  console.log(`Cropped: ${croppedMeta.width}x${croppedMeta.height}`);
+
+  // Make it perfectly square (pad if needed) with white background
+  const squareSize = Math.max(croppedMeta.width, croppedMeta.height);
+  const caurisSquare = await sharp(caurisCropped)
+    .resize(squareSize, squareSize, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
+    .toBuffer();
+
+  // Generate regular icons (white background, rounded corners applied by OS)
+  const sizes = [32, 180, 192, 512];
+  for (const size of sizes) {
+    const resized = await sharp(caurisSquare)
+      .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
+      .png()
+      .toBuffer();
+
+    if (size === 32) {
+      await sharp(resized).toFile(path.join(outDir, 'favicon-32.png'));
+      console.log('  ✓ favicon-32.png');
+    }
+    if (size === 180) {
+      await sharp(resized).toFile(path.join(outDir, 'apple-touch-icon.png'));
+      console.log('  ✓ apple-touch-icon.png');
+    }
+    if (size === 192 || size === 512) {
+      await sharp(resized).toFile(path.join(outDir, `icon-${size}.png`));
+      console.log(`  ✓ icon-${size}.png`);
     }
   }
 
-  const outDir = path.join(__dirname, '..', 'public', 'icons');
-  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+  // Generate maskable icons (with HOXA green background + padding for safe zone)
+  for (const size of [192, 512]) {
+    // Maskable icons need 20% padding (safe zone) with brand background
+    const innerSize = Math.round(size * 0.6); // 60% of total = content area
+    const padding = Math.round((size - innerSize) / 2);
 
-  const sizes = [192, 512];
+    const inner = await sharp(caurisSquare)
+      .resize(innerSize, innerSize, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
+      .png()
+      .toBuffer();
 
-  for (const size of sizes) {
-    // Regular icon
-    const svg = Buffer.from(createSVG(size, false));
-    await sharp(svg).png().toFile(path.join(outDir, `icon-${size}.png`));
-    console.log(`  ✓ icon-${size}.png`);
+    // Create green background and composite the cauris on top
+    const maskable = await sharp({
+      create: {
+        width: size,
+        height: size,
+        channels: 4,
+        background: { r: 24, g: 130, b: 74, alpha: 255 } // #18824a
+      }
+    })
+      .composite([{ input: inner, left: padding, top: padding }])
+      .png()
+      .toFile(path.join(outDir, `icon-maskable-${size}.png`));
 
-    // Maskable icon
-    const maskSvg = Buffer.from(createSVG(size, true));
-    await sharp(maskSvg).png().toFile(path.join(outDir, `icon-maskable-${size}.png`));
     console.log(`  ✓ icon-maskable-${size}.png`);
   }
 
-  // Also generate apple-touch-icon (180x180)
-  const appleSvg = Buffer.from(createSVG(180, false));
-  await sharp(appleSvg).png().toFile(path.join(outDir, `apple-touch-icon.png`));
-  console.log(`  ✓ apple-touch-icon.png`);
+  // Also save the full logo for use in headers/splash
+  await sharp(logoPath)
+    .png()
+    .toFile(path.join(outDir, '..', 'hoxa-logo.png'));
+  console.log('  ✓ public/hoxa-logo.png (full logo)');
 
-  // Generate favicon (32x32)
-  const favSvg = Buffer.from(createSVG(32, false));
-  await sharp(favSvg).png().toFile(path.join(outDir, `favicon-32.png`));
-  console.log(`  ✓ favicon-32.png`);
-
-  console.log('\nAll PNG icons generated in public/icons/');
+  console.log('\nAll icons generated from cauris logo!');
 }
 
 main().catch(console.error);

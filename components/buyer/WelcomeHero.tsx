@@ -32,9 +32,7 @@ export default function WelcomeHero({ fullName, greeting, activeTrades }: Props)
         </div>
 
         {/* Logo mark */}
-        <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-xl">H</span>
-        </div>
+        <img src="/icons/icon-192.png" alt="HOXA" className="w-12 h-12 rounded-2xl flex-shrink-0" />
       </div>
 
       {/* Actions */}

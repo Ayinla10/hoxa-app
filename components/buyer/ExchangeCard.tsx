@@ -28,9 +28,7 @@ export default function ExchangeCard({ totalVolume, totalTrades, successRate, ac
             </button>
           </div>
         </div>
-        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-base">H</span>
-        </div>
+        <img src="/icons/icon-192.png" alt="HOXA" className="w-10 h-10 rounded-xl flex-shrink-0" />
       </div>
 
       <div className="flex gap-6 mb-6">

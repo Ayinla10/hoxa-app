@@ -65,9 +65,7 @@ export default function PWAInstall() {
   return (
     <div className="fixed bottom-20 left-4 right-4 z-[9999] animate-in slide-in-from-bottom duration-300 lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-sm">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#18824a] to-[#0f5530] flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-black text-lg">H</span>
-        </div>
+        <img src="/icons/icon-192.png" alt="HOXA" className="w-12 h-12 rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 text-sm">Install HOXA</p>
           <p className="text-xs text-gray-500 mt-0.5">Add to home screen for quick access</p>

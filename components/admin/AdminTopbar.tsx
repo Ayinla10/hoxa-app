@@ -65,9 +65,7 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#18824a] to-[#0f6a3d] flex items-center justify-center">
-                <span className="text-white font-black text-xs">H</span>
-              </div>
+              <img src="/icons/icon-192.png" alt="HOXA" className="w-7 h-7 rounded-lg" />
               <span className="text-gray-900 font-bold text-sm">HOXA Admin</span>
             </div>
           </div>
@@ -111,9 +109,7 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
         {/* Drawer header */}
         <div className="bg-gradient-to-br from-[#18824a] to-[#0f6a3d] px-5 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center">
-              <span className="text-white font-black text-sm">H</span>
-            </div>
+            <img src="/icons/icon-192.png" alt="HOXA" className="w-9 h-9 rounded-xl" />
             <div>
               <span className="text-white font-bold text-base">HOXA</span>
               <div className="flex items-center gap-1.5 mt-0.5">

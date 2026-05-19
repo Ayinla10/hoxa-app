@@ -40,9 +40,7 @@ export default function WalletCard({ liquidity, pendingSettlements, dailyVolume,
             </button>
           </div>
         </div>
-        <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-          <span className="text-white font-bold text-base">H</span>
-        </div>
+        <img src="/icons/icon-192.png" alt="HOXA" className="w-10 h-10 rounded-xl" />
       </div>
 
       {/* Stats row */}
