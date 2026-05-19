@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ArrowLeftRight, CreditCard, Users, Store,
@@ -29,11 +29,11 @@ const groups = [
 
 export default function AdminSidebar({ adminName, pendingEscrow = 0 }: { adminName: string; pendingEscrow?: number }) {
   const pathname = usePathname()
-  const router = useRouter()
 
   async function logout() {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
-    router.push('/admin')
+    window.location.href = '/admin'
   }
 
   return (

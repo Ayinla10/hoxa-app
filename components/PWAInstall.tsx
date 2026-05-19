@@ -7,9 +7,16 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-export default function PWAInstall() {
+interface PWAInstallProps {
+  appName?: string
+  subtitle?: string
+}
+
+export default function PWAInstall({ appName = 'HOXA', subtitle = 'Add to home screen for quick access' }: PWAInstallProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showBanner, setShowBanner] = useState(false)
+
+  const dismissKey = `pwa-dismissed-${appName.toLowerCase().replace(/\s+/g, '-')}`
 
   useEffect(() => {
     // Register service worker
@@ -24,11 +31,9 @@ export default function PWAInstall() {
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      // Only show if not already installed and not dismissed recently
-      const dismissed = localStorage.getItem('pwa-dismissed')
+      const dismissed = localStorage.getItem(dismissKey)
       if (dismissed) {
         const dismissedAt = Number(dismissed)
-        // Don't show again for 7 days after dismissal
         if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return
       }
       setShowBanner(true)
@@ -36,14 +41,13 @@ export default function PWAInstall() {
 
     window.addEventListener('beforeinstallprompt', handler)
 
-    // Hide banner if already installed
     window.addEventListener('appinstalled', () => {
       setShowBanner(false)
       setDeferredPrompt(null)
     })
 
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+  }, [dismissKey])
 
   const handleInstall = async () => {
     if (!deferredPrompt) return
@@ -57,7 +61,7 @@ export default function PWAInstall() {
 
   const handleDismiss = () => {
     setShowBanner(false)
-    localStorage.setItem('pwa-dismissed', String(Date.now()))
+    localStorage.setItem(dismissKey, String(Date.now()))
   }
 
   if (!showBanner) return null
@@ -65,10 +69,10 @@ export default function PWAInstall() {
   return (
     <div className="fixed top-3 left-4 right-4 z-[9999] animate-in slide-in-from-top duration-300 lg:left-auto lg:right-6 lg:max-w-sm">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 flex items-center gap-3">
-        <img src="/icons/icon-192.png" alt="HOXA" className="w-12 h-12 rounded-xl flex-shrink-0 bg-white" />
+        <img src="/icons/icon-192.png" alt={appName} className="w-12 h-12 rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 text-sm">Install HOXA</p>
-          <p className="text-xs text-gray-500 mt-0.5">Add to home screen for quick access</p>
+          <p className="font-semibold text-gray-900 text-sm">Install {appName}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button

@@ -24,6 +24,7 @@ export default function BuyerSidebar({ fullName, notifCount }: Props) {
   ]
 
   async function logout() {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
     window.location.href = '/login'
   }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Bell, Search, Menu, X, ArrowUpRight,
@@ -23,7 +23,6 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
-  const router = useRouter()
   const { t } = useI18n()
 
   useEffect(() => {
@@ -46,8 +45,9 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
   ]
 
   async function logout() {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   return (

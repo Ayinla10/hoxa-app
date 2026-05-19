@@ -44,14 +44,10 @@ export default function AdminLoginPage() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#18824a] to-[#0f6a3d] flex items-center justify-center">
-            <ShieldCheck size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="font-bold text-gray-900 text-lg">HOXA Admin</h1>
-            <p className="text-gray-400 text-xs">Secure administrator portal</p>
-          </div>
-          <span className="ml-auto text-[10px] text-red-500 font-bold bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">ADMIN</span>
+          <img src="/hoxa-logo.png" alt="HOXA" className="h-8" />
+          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-red-500 font-bold bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+            <ShieldCheck size={10} /> ADMIN
+          </span>
         </div>
 
         {error && (

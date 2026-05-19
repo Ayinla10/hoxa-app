@@ -23,6 +23,7 @@ export default function BuyerNav({ fullName, notifCount }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   async function logout() {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
     window.location.href = '/login'
   }

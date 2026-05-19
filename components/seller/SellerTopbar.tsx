@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bell, Search, ChevronDown, Menu, ArrowUpRight, User, LogOut } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { updateSellerAvailability, getSellerRecord } from '@/actions/listings'
 import { useSidebar } from '@/lib/sidebar-context'
@@ -21,7 +20,6 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
   const [profileOpen, setProfileOpen] = useState(false)
   const { setMobileOpen } = useSidebar()
   const { t } = useI18n()
-  const router = useRouter()
   const profileRef = useRef<HTMLDivElement>(null)
 
   const statusOptions = [
@@ -47,8 +45,9 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
 
   async function handleLogout() {
     setProfileOpen(false)
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   return (

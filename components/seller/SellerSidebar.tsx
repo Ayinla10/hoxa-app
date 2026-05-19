@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, FileText, ArrowLeftRight, Clock,
@@ -19,7 +19,6 @@ interface Props {
 
 export default function SellerSidebar({ sellerName, score, online }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const { t } = useI18n()
   const { collapsed, mobileOpen, toggleCollapsed, setMobileOpen } = useSidebar()
 
@@ -35,9 +34,9 @@ export default function SellerSidebar({ sellerName, score, online }: Props) {
   ]
 
   async function handleLogout() {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
-    router.push('/login')
-    router.refresh()
+    window.location.href = '/login'
   }
 
   function handleNavClick() {

@@ -2,23 +2,23 @@
 
 import { useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 const DEFAULT_TIMEOUT_MIN = 15
 
-export default function SessionGuard({ timeoutMinutes }: { timeoutMinutes?: number }) {
-  const router = useRouter()
+export default function SessionGuard({ timeoutMinutes, logoutPath = '/login' }: { timeoutMinutes?: number; logoutPath?: string }) {
   const timeoutMs = (timeoutMinutes ?? DEFAULT_TIMEOUT_MIN) * 60 * 1000
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastActivityRef = useRef(Date.now())
   const timeoutMsRef = useRef(timeoutMs)
   timeoutMsRef.current = timeoutMs
+  const logoutPathRef = useRef(logoutPath)
+  logoutPathRef.current = logoutPath
 
   const logout = useCallback(async () => {
     localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
-    router.push('/login')
-  }, [router])
+    window.location.href = logoutPathRef.current
+  }, [])
 
   const resetTimer = useCallback(() => {
     lastActivityRef.current = Date.now()

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Bell, Search, Activity, Menu, X,
@@ -35,11 +35,11 @@ interface Props {
 export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0, pendingEscrow = 0 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
-  const router = useRouter()
 
   async function logout() {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
-    router.push('/admin')
+    window.location.href = '/admin'
   }
 
   return (
