@@ -9,6 +9,7 @@ import SellerShell from '@/components/seller/SellerShell'
 import BottomNav from '@/components/seller/BottomNav'
 import RealtimeSubscriber from '@/components/seller/RealtimeSubscriber'
 import SessionGuard from '@/components/SessionGuard'
+import { getSettings } from '@/actions/settings'
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -31,6 +32,9 @@ export default async function SellerLayout({ children }: { children: React.React
   const cookieLang = cookieStore.get('hoxa_lang')?.value
   const lang = (profile?.language ?? cookieLang ?? 'en') as Lang
 
+  const settings = await getSettings()
+  const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
+
   return (
     <I18nProvider lang={lang}>
       <SidebarProvider>
@@ -46,7 +50,7 @@ export default async function SellerLayout({ children }: { children: React.React
             {children}
           </SellerShell>
           <BottomNav />
-          <SessionGuard />
+          <SessionGuard timeoutMinutes={sessionTimeout} />
         </div>
       </SidebarProvider>
     </I18nProvider>

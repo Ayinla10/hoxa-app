@@ -6,6 +6,7 @@ import BuyerSidebar from '@/components/buyer/BuyerSidebar'
 import BuyerTopbar from '@/components/buyer/BuyerTopbar'
 import BuyerBottomNav from '@/components/buyer/BuyerBottomNav'
 import SessionGuard from '@/components/SessionGuard'
+import { getSettings } from '@/actions/settings'
 import { cookies } from 'next/headers'
 
 export default async function BuyerLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,9 @@ export default async function BuyerLayout({ children }: { children: React.ReactN
   const notifCount = notifications?.length ?? 0
   const fullName = profile?.full_name ?? ''
 
+  const settings = await getSettings()
+  const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
+
   return (
     <I18nProvider lang={lang}>
       <div className="min-h-screen bg-[#F7F9F8]">
@@ -47,7 +51,7 @@ export default async function BuyerLayout({ children }: { children: React.ReactN
           </main>
         </div>
         <BuyerBottomNav />
-        <SessionGuard />
+        <SessionGuard timeoutMinutes={sessionTimeout} />
       </div>
     </I18nProvider>
   )

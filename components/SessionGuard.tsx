@@ -4,15 +4,18 @@ import { useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-// Auto-logout after 30 minutes of inactivity
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000
+const DEFAULT_TIMEOUT_MIN = 15
 
-export default function SessionGuard() {
+export default function SessionGuard({ timeoutMinutes }: { timeoutMinutes?: number }) {
   const router = useRouter()
+  const timeoutMs = (timeoutMinutes ?? DEFAULT_TIMEOUT_MIN) * 60 * 1000
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastActivityRef = useRef(Date.now())
+  const timeoutMsRef = useRef(timeoutMs)
+  timeoutMsRef.current = timeoutMs
 
   const logout = useCallback(async () => {
+    localStorage.removeItem('hoxa_last_active')
     await createClient().auth.signOut()
     router.push('/login')
   }, [router])
@@ -20,7 +23,7 @@ export default function SessionGuard() {
   const resetTimer = useCallback(() => {
     lastActivityRef.current = Date.now()
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(logout, IDLE_TIMEOUT_MS)
+    timerRef.current = setTimeout(logout, timeoutMsRef.current)
   }, [logout])
 
   useEffect(() => {
@@ -28,7 +31,7 @@ export default function SessionGuard() {
     const stored = localStorage.getItem('hoxa_last_active')
     if (stored) {
       const elapsed = Date.now() - parseInt(stored, 10)
-      if (elapsed > IDLE_TIMEOUT_MS) {
+      if (elapsed > timeoutMs) {
         logout()
         return
       }
@@ -55,7 +58,7 @@ export default function SessionGuard() {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         const stored = localStorage.getItem('hoxa_last_active')
-        if (stored && Date.now() - parseInt(stored, 10) > IDLE_TIMEOUT_MS) {
+        if (stored && Date.now() - parseInt(stored, 10) > timeoutMsRef.current) {
           logout()
         } else {
           resetTimer()
@@ -70,7 +73,7 @@ export default function SessionGuard() {
       for (const e of events) window.removeEventListener(e, handleActivity)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [resetTimer, logout])
+  }, [resetTimer, logout, timeoutMs])
 
   return null
 }

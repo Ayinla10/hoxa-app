@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { updateSetting } from '@/actions/settings'
 import { useRouter } from 'next/navigation'
 import {
-  Clock, Percent, Globe, Store, Smartphone, ArrowLeftRight,
+  Clock, Percent, Globe, Store, Smartphone, ArrowLeftRight, Timer,
   Save, Loader2, CheckCircle2, AlertTriangle, Plus, X,
 } from 'lucide-react'
 
@@ -70,6 +70,7 @@ export default function AdminSettingsClient({ settings }: Props) {
 
   const [timeout, setTimeout_] = useState(String(settings['seller_response_timeout_seconds'] ?? 120))
   const [fee, setFee] = useState(String(settings['platform_fee_percent'] ?? 1.5))
+  const [sessionTimeout, setSessionTimeout] = useState(String(settings['session_timeout_minutes'] ?? 15))
   const [marketplaceActive, setMarketplaceActive] = useState(settings['marketplace_active'] === true || settings['marketplace_active'] === 'true')
 
   // MoMo networks
@@ -225,6 +226,33 @@ export default function AdminSettingsClient({ settings }: Props) {
             <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${marketplaceActive ? 'left-6' : 'left-0.5'}`} />
           </button>
         </div>
+      </SettingCard>
+
+      {/* Session Timeout */}
+      <SettingCard
+        icon={Timer} iconColor="text-rose-600" iconBg="bg-rose-50"
+        title="Session Idle Timeout"
+        description="Auto-logout users after this many minutes of inactivity. Takes effect on next page load."
+      >
+        <form onSubmit={e => { e.preventDefault(); save('session_timeout_minutes', Number(sessionTimeout), () => { const n = Number(sessionTimeout); if (isNaN(n) || n < 1 || n > 1440) return 'Must be between 1 and 1440 minutes'; return null }) }}>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <input type="number" min={1} max={1440} value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">minutes</span>
+            </div>
+            <SaveButton loading={loading === 'session_timeout_minutes'} saved={saved === 'session_timeout_minutes'} />
+          </div>
+          <div className="flex gap-2 mt-2.5">
+            {[5, 15, 30, 60, 120].map(m => (
+              <button key={m} type="button" onClick={() => setSessionTimeout(String(m))}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${sessionTimeout === String(m) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                {m >= 60 ? `${m / 60}h` : `${m}m`}
+              </button>
+            ))}
+          </div>
+          {errors['session_timeout_minutes'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['session_timeout_minutes']}</p>}
+        </form>
       </SettingCard>
 
       {/* Currency Pairs */}

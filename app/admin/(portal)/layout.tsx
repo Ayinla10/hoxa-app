@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
 import SessionGuard from '@/components/SessionGuard'
+import { getSettings } from '@/actions/settings'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -22,6 +23,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .select('*', { count: 'exact', head: true })
     .eq('status', 'payment_submitted')
 
+  const settings = await getSettings()
+  const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
+
   return (
     <div className="min-h-screen bg-[#F7F9F8]">
       <AdminSidebar adminName={profile?.full_name ?? 'Admin'} pendingEscrow={pendingEscrow ?? 0} />
@@ -29,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {children}
       </div>
       <AdminBottomNav />
-      <SessionGuard />
+      <SessionGuard timeoutMinutes={sessionTimeout} />
     </div>
   )
 }
