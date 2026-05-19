@@ -3,8 +3,6 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
 import SessionGuard from '@/components/SessionGuard'
-import AdminManifest from '@/components/AdminManifest'
-import PWAInstall from '@/components/PWAInstall'
 import { getSettings } from '@/actions/settings'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -35,8 +33,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {children}
       </div>
       <AdminBottomNav />
-      <AdminManifest />
-      <PWAInstall appName="HOXA Admin" subtitle="Admin portal on your home screen" />
       <SessionGuard timeoutMinutes={sessionTimeout} logoutPath="/admin" />
     </div>
   )

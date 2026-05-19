@@ -1,22 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-interface PWAInstallProps {
-  appName?: string
-  subtitle?: string
-}
-
-export default function PWAInstall({ appName = 'HOXA', subtitle = 'Add to home screen for quick access' }: PWAInstallProps) {
+export default function PWAInstall() {
+  const pathname = usePathname()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showBanner, setShowBanner] = useState(false)
 
-  const dismissKey = `pwa-dismissed-${appName.toLowerCase().replace(/\s+/g, '-')}`
+  const isAdmin = pathname.startsWith('/admin')
+  const appName = isAdmin ? 'HOXA Admin' : 'HOXA'
+  const subtitle = isAdmin
+    ? 'Admin portal on your home screen'
+    : 'Add to home screen for quick access'
+  const dismissKey = isAdmin ? 'pwa-dismissed-hoxa-admin' : 'pwa-dismissed-hoxa'
 
   useEffect(() => {
     // Register service worker
@@ -25,6 +27,12 @@ export default function PWAInstall({ appName = 'HOXA', subtitle = 'Add to home s
         .register('/sw.js')
         .then((reg) => console.log('SW registered:', reg.scope))
         .catch((err) => console.log('SW registration failed:', err))
+    }
+
+    // Swap manifest for admin pages
+    const link = document.querySelector('link[rel="manifest"]')
+    if (link) {
+      link.setAttribute('href', isAdmin ? '/admin-manifest.json' : '/manifest.json')
     }
 
     // Listen for install prompt
@@ -47,7 +55,7 @@ export default function PWAInstall({ appName = 'HOXA', subtitle = 'Add to home s
     })
 
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [dismissKey])
+  }, [isAdmin, dismissKey])
 
   const handleInstall = async () => {
     if (!deferredPrompt) return
