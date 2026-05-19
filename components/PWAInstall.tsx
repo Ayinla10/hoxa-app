@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -10,15 +10,15 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function PWAInstall() {
   const pathname = usePathname()
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showBanner, setShowBanner] = useState(false)
+  const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   const isAdmin = pathname.startsWith('/admin')
   const appName = isAdmin ? 'HOXA Admin' : 'HOXA'
   const subtitle = isAdmin
     ? 'Admin portal on your home screen'
     : 'Add to home screen for quick access'
-  const dismissKey = isAdmin ? 'pwa-dismissed-hoxa-admin' : 'pwa-dismissed-hoxa'
+  const dismissKey = isAdmin ? 'pwa-dismissed-admin' : 'pwa-dismissed'
 
   useEffect(() => {
     // Register service worker
@@ -35,36 +35,61 @@ export default function PWAInstall() {
       link.setAttribute('href', isAdmin ? '/admin-manifest.json' : '/manifest.json')
     }
 
-    // Listen for install prompt
-    const handler = (e: Event) => {
+    // Capture install prompt if browser fires it
+    const promptHandler = (e: Event) => {
       e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
-      const dismissed = localStorage.getItem(dismissKey)
-      if (dismissed) {
-        const dismissedAt = Number(dismissed)
-        if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return
-      }
-      setShowBanner(true)
+      deferredPromptRef.current = e as BeforeInstallPromptEvent
+    }
+    window.addEventListener('beforeinstallprompt', promptHandler)
+
+    // Hide if installed
+    const installedHandler = () => {
+      setShowBanner(false)
+      deferredPromptRef.current = null
+    }
+    window.addEventListener('appinstalled', installedHandler)
+
+    // Don't show if already installed (standalone mode)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true
+    if (isStandalone) return
+
+    // Check dismissal
+    const dismissed = localStorage.getItem(dismissKey)
+    if (dismissed) {
+      const elapsed = Date.now() - Number(dismissed)
+      if (elapsed < 7 * 24 * 60 * 60 * 1000) return // 7-day cooldown
     }
 
-    window.addEventListener('beforeinstallprompt', handler)
+    // Show banner after a short delay (don't rely on beforeinstallprompt to show)
+    const timer = setTimeout(() => setShowBanner(true), 2000)
 
-    window.addEventListener('appinstalled', () => {
-      setShowBanner(false)
-      setDeferredPrompt(null)
-    })
-
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('beforeinstallprompt', promptHandler)
+      window.removeEventListener('appinstalled', installedHandler)
+    }
   }, [isAdmin, dismissKey])
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    if (outcome === 'accepted') {
-      setShowBanner(false)
+    if (deferredPromptRef.current) {
+      // Chrome/Android: use the native install prompt
+      deferredPromptRef.current.prompt()
+      const { outcome } = await deferredPromptRef.current.userChoice
+      if (outcome === 'accepted') {
+        setShowBanner(false)
+        localStorage.setItem(dismissKey, String(Date.now()))
+      }
+      deferredPromptRef.current = null
+    } else {
+      // iOS / other browsers: show manual instructions
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      if (isIOS) {
+        alert('To install: tap the Share button (↑) at the bottom of Safari, then tap "Add to Home Screen"')
+      } else {
+        alert('To install: tap the browser menu (⋮) and select "Add to Home Screen" or "Install App"')
+      }
     }
-    setDeferredPrompt(null)
   }
 
   const handleDismiss = () => {
