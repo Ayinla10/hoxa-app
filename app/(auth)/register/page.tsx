@@ -36,6 +36,13 @@ export default function RegisterPage() {
   })
   const [dialCode, setDialCode] = useState(COUNTRY_CODES[0])
   const [showDialDropdown, setShowDialDropdown] = useState(false)
+
+  // Auto-fill country when dial code changes
+  function selectDialCode(c: typeof COUNTRY_CODES[number]) {
+    setDialCode(c)
+    setShowDialDropdown(false)
+    update('country', c.name)
+  }
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -149,7 +156,7 @@ export default function RegisterPage() {
                     <button
                       key={c.iso}
                       type="button"
-                      onClick={() => { setDialCode(c); setShowDialDropdown(false) }}
+                      onClick={() => selectDialCode(c)}
                       className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       <img src={`/flags/${c.iso}.svg`} alt={c.name} className="w-5 h-3.5 object-cover rounded-sm" />

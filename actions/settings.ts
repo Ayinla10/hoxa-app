@@ -25,13 +25,26 @@ export async function updateSetting(key: string, value: any) {
   if (!admin) return { error: 'Admin access required' }
 
   const service = createServiceClient()
-  const { error } = await service.from('settings').update({
-    value: JSON.stringify(value),
-    updated_by: admin.id,
-    updated_at: new Date().toISOString(),
-  }).eq('key', key)
 
-  if (error) return { error: error.message }
+  // Upsert: update if exists, insert if not
+  const { data: existing } = await service.from('settings').select('key').eq('key', key).single()
+
+  if (existing) {
+    const { error } = await service.from('settings').update({
+      value: JSON.stringify(value),
+      updated_by: admin.id,
+      updated_at: new Date().toISOString(),
+    }).eq('key', key)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await service.from('settings').insert({
+      key,
+      value: JSON.stringify(value),
+      updated_by: admin.id,
+      updated_at: new Date().toISOString(),
+    })
+    if (error) return { error: error.message }
+  }
 
   revalidatePath('/admin/settings')
   return { success: true }
