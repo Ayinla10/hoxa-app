@@ -3,11 +3,18 @@
 import webpush from 'web-push'
 import { createServiceClient } from '@/lib/supabase/server'
 
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+// Lazy init — only configure when actually sending, not at module load.
+// This prevents build-time crashes when env vars aren't set yet.
+function initVapid() {
+  const mailto = process.env.VAPID_MAILTO
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  if (mailto && publicKey && privateKey) {
+    webpush.setVapidDetails(mailto, publicKey, privateKey)
+    return true
+  }
+  return false
+}
 
 /** Save a browser push subscription for a user */
 export async function savePushSubscription(
@@ -56,6 +63,7 @@ export async function sendPushToUser(
     .eq('user_id', userId)
 
   if (!subs || subs.length === 0) return
+  if (!initVapid()) return   // VAPID not configured — skip silently
 
   const body = JSON.stringify(payload)
 
