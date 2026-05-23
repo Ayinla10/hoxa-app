@@ -1,15 +1,14 @@
 'use server'
 
-import { createClient, createServiceClient, getAuthUser } from '@/lib/supabase/server'
+import { createClient, getAuthUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { cache } from 'react'
 
 // ── Public reads (cached per request) ──
 
 export const getActiveCorridors = cache(async () => {
-  // Use service client to bypass RLS — corridors are public config data
-  const service = createServiceClient()
-  const { data, error } = await service
+  const supabase = await createClient()
+  const { data, error } = await supabase
     .from('corridors')
     .select('*')
     .eq('is_active', true)
@@ -19,8 +18,8 @@ export const getActiveCorridors = cache(async () => {
 })
 
 export const getCorridorById = cache(async (id: string) => {
-  const service = createServiceClient()
-  const { data } = await service
+  const supabase = await createClient()
+  const { data } = await supabase
     .from('corridors')
     .select('*, hoxa_collection_accounts(*)')
     .eq('id', id)
@@ -29,8 +28,8 @@ export const getCorridorById = cache(async (id: string) => {
 })
 
 export const getAllCorridors = cache(async () => {
-  const service = createServiceClient()
-  const { data } = await service
+  const supabase = await createClient()
+  const { data } = await supabase
     .from('corridors')
     .select('*')
     .order('is_active', { ascending: false })
@@ -40,8 +39,8 @@ export const getAllCorridors = cache(async () => {
 
 /** Find corridor by currency pair */
 export const findCorridor = cache(async (sendCurrency: string, receiveCurrency: string) => {
-  const service = createServiceClient()
-  const { data } = await service
+  const supabase = await createClient()
+  const { data } = await supabase
     .from('corridors')
     .select('*')
     .eq('send_currency', sendCurrency)
@@ -52,8 +51,8 @@ export const findCorridor = cache(async (sendCurrency: string, receiveCurrency: 
 
 /** Get countries that use a given currency (for destination country suggestions) */
 export const getCountriesForCurrency = cache(async (currency: string) => {
-  const service = createServiceClient()
-  const { data } = await service
+  const supabase = await createClient()
+  const { data } = await supabase
     .from('corridors')
     .select('receive_country')
     .eq('receive_currency', currency)
@@ -73,14 +72,14 @@ export async function createCorridor(input: {
   min_amount: number
   max_amount: number
 }) {
-  const { user } = await getAuthUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const service = createServiceClient()
-  const { data: profile } = await service.from('profiles').select('role').eq('id', user.id).single()
+  // RLS enforces admin-only write — this check is belt-and-suspenders
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return { error: 'Admin access required' }
 
-  const { error } = await service.from('corridors').insert({
+  const { error } = await supabase.from('corridors').insert({
     ...input,
     is_active: true,
   })
@@ -91,14 +90,13 @@ export async function createCorridor(input: {
 }
 
 export async function updateCorridor(id: string, input: Record<string, unknown>) {
-  const { user } = await getAuthUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const service = createServiceClient()
-  const { data: profile } = await service.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return { error: 'Admin access required' }
 
-  const { error } = await service.from('corridors').update(input).eq('id', id)
+  const { error } = await supabase.from('corridors').update(input).eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/corridors')
