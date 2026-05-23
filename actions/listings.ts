@@ -84,6 +84,9 @@ export async function updateOffer(id: string, input: Partial<OfferInput>) {
   if (input.min_amount !== undefined && input.min_amount <= 0) return { error: 'Minimum amount must be greater than zero' }
   if (input.max_amount !== undefined && input.max_amount <= 0) return { error: 'Maximum amount must be greater than zero' }
   if (input.available_liquidity !== undefined && input.available_liquidity <= 0) return { error: 'Available liquidity must be greater than zero' }
+  if (input.min_amount !== undefined && input.max_amount !== undefined && input.min_amount > input.max_amount) {
+    return { error: 'Minimum amount cannot exceed maximum amount' }
+  }
 
   const { error } = await supabase
     .from('offers')
@@ -132,17 +135,115 @@ export async function pauseAllOffers() {
 }
 
 export async function updateSellerAvailability(status: 'online' | 'busy' | 'offline') {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
+
+  // `availability` = 3-way display state
+  // `manual_availability_status` = 2-way field the marketplace reads to show/hide seller
+  const manualStatus = status === 'offline' ? 'offline' : 'available'
 
   const { error } = await supabase
     .from('sellers')
-    .update({ availability: status })
+    .update({ availability: status, manual_availability_status: manualStatus })
     .eq('user_id', user.id)
 
   if (error) return { error: 'Failed to update availability' }
   revalidatePath('/seller')
+  revalidatePath('/dashboard/marketplace')
+  return { success: true }
+}
+
+export async function toggleAutoAccept(enabled: boolean) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('sellers')
+    .update({ auto_accept_enabled: enabled })
+    .eq('user_id', user.id)
+
+  if (error) return { error: 'Failed to update auto-accept' }
+  revalidatePath('/seller/settings')
+  return { success: true }
+}
+
+export async function updateAvailabilitySchedule(data: {
+  weekly_hours: Record<string, { open: string; close: string; enabled: boolean }[]>
+  timezone: string
+}) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('sellers')
+    .update({ weekly_hours: data.weekly_hours, timezone: data.timezone })
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/seller/settings')
+  return { success: true }
+}
+
+export async function updateAutoAcceptRules(data: {
+  auto_accept_enabled: boolean
+  auto_accept_max_amount: number | null
+}) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('sellers')
+    .update({
+      auto_accept_enabled: data.auto_accept_enabled,
+      auto_accept_rules: data.auto_accept_max_amount !== null
+        ? { max_amount: data.auto_accept_max_amount }
+        : null,
+    })
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/seller/settings')
+  return { success: true }
+}
+
+export async function requestPayout(data: {
+  amount: number
+  currency: string
+  account_name: string
+  account_number: string
+  provider: string
+}) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: seller } = await supabase
+    .from('sellers')
+    .select('id, pending_balance, currency')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!seller) return { error: 'Seller account not found' }
+
+  const balance = seller.pending_balance ?? 0
+  if (data.amount > balance) return { error: `Insufficient balance. Available: ${balance} ${data.currency}` }
+  if (data.amount <= 0) return { error: 'Amount must be greater than 0' }
+
+  // Insert payout request
+  const { error } = await supabase.from('payout_requests').insert({
+    seller_id: seller.id,
+    user_id: user.id,
+    amount: data.amount,
+    currency: data.currency,
+    account_name: data.account_name,
+    account_number: data.account_number,
+    provider: data.provider,
+    status: 'pending',
+  })
+
+  if (error) return { error: 'Failed to submit payout request' }
+
+  revalidatePath('/seller/dashboard')
+  revalidatePath('/seller/settings')
   return { success: true }
 }
 
@@ -182,5 +283,7 @@ export async function getMarketplaceOffers(fromCurrency?: string, toCurrency?: s
 
   const { data, error } = await query.order('rate', { ascending: true })
   if (error) return []
-  return data ?? []
+  // Belt-and-suspenders: re-filter approved sellers in-memory
+  // (PostgREST join filters can be unreliable with left joins)
+  return (data ?? []).filter((o: any) => o.sellers?.status === 'approved')
 }

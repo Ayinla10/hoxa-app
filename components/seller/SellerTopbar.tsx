@@ -31,7 +31,13 @@ export default function SellerTopbar({ title, sellerName, notifCount = 0 }: Prop
   const current = statusOptions.find(s => s.value === availability)!
 
   useEffect(() => {
-    getSellerRecord().then(s => { if (s?.availability) setAvailability(s.availability) })
+    getSellerRecord().then(s => {
+      if (!s) return
+      // Reconstruct 3-way state: if manual_availability_status is 'offline' → offline,
+      // otherwise fall back to the stored availability field
+      if (s.manual_availability_status === 'offline') setAvailability('offline')
+      else if (s.availability) setAvailability(s.availability)
+    })
   }, [])
 
   useEffect(() => {

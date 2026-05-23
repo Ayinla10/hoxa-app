@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Clock, Percent, Globe, Store, Smartphone, ArrowLeftRight, Timer,
   Save, Loader2, CheckCircle2, AlertTriangle, Plus, X,
+  Lock, CreditCard, ShieldAlert, ReceiptText,
 } from 'lucide-react'
 
 interface Props {
@@ -67,6 +68,12 @@ const DEFAULT_MOMO_NETWORKS: Record<string, string[]> = {
 
 export default function AdminSettingsClient({ settings }: Props) {
   const router = useRouter()
+
+  // V5.1 timing settings
+  const [rateLock, setRateLock] = useState(String(settings['rate_lock_duration_seconds'] ?? 600))
+  const [paymentWindow, setPaymentWindow] = useState(String(settings['payment_window_duration_seconds'] ?? 1200))
+  const [minTapTime, setMinTapTime] = useState(String(settings['minimum_tap_time_seconds'] ?? 30))
+  const [receiptAutoConfirm, setReceiptAutoConfirm] = useState(String(settings['receipt_auto_confirm_seconds'] ?? 10800))
 
   const [timeout, setTimeout_] = useState(String(settings['seller_response_timeout_seconds'] ?? 120))
   const [fee, setFee] = useState(String(settings['platform_fee_percent'] ?? 1.5))
@@ -252,6 +259,123 @@ export default function AdminSettingsClient({ settings }: Props) {
             ))}
           </div>
           {errors['session_timeout_minutes'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['session_timeout_minutes']}</p>}
+        </form>
+      </SettingCard>
+
+      {/* Rate Lock Duration */}
+      <SettingCard
+        icon={Lock} iconColor="text-violet-600" iconBg="bg-violet-50"
+        title="Rate Lock Duration"
+        description="How long the buyer's exchange rate is locked after a seller accepts. After this window, the rate may be refreshed."
+      >
+        <form onSubmit={e => { e.preventDefault(); save('rate_lock_duration_seconds', Number(rateLock), () => { const n = Number(rateLock); if (isNaN(n) || n < 60 || n > 3600) return 'Must be between 60 and 3600 seconds'; return null }) }}>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <input type="number" min={60} max={3600} value={rateLock} onChange={e => setRateLock(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">seconds</span>
+            </div>
+            <SaveButton loading={loading === 'rate_lock_duration_seconds'} saved={saved === 'rate_lock_duration_seconds'} />
+          </div>
+          <div className="flex gap-2 mt-2.5">
+            {[300, 600, 900, 1800, 3600].map(s => (
+              <button key={s} type="button" onClick={() => setRateLock(String(s))}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${rateLock === String(s) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                {s >= 60 ? `${s / 60}m` : `${s}s`}
+              </button>
+            ))}
+          </div>
+          {errors['rate_lock_duration_seconds'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['rate_lock_duration_seconds']}</p>}
+        </form>
+      </SettingCard>
+
+      {/* Payment Window Duration */}
+      <SettingCard
+        icon={CreditCard} iconColor="text-blue-600" iconBg="bg-blue-50"
+        title="Payment Window"
+        description="How long a buyer has after tapping 'I've Paid' for ops to confirm payment before the window expires."
+      >
+        <form onSubmit={e => { e.preventDefault(); save('payment_window_duration_seconds', Number(paymentWindow), () => { const n = Number(paymentWindow); if (isNaN(n) || n < 60 || n > 7200) return 'Must be between 60 and 7200 seconds'; return null }) }}>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <input type="number" min={60} max={7200} value={paymentWindow} onChange={e => setPaymentWindow(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">seconds</span>
+            </div>
+            <SaveButton loading={loading === 'payment_window_duration_seconds'} saved={saved === 'payment_window_duration_seconds'} />
+          </div>
+          <div className="flex gap-2 mt-2.5">
+            {[600, 1200, 1800, 3600, 7200].map(s => (
+              <button key={s} type="button" onClick={() => setPaymentWindow(String(s))}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${paymentWindow === String(s) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                {s >= 3600 ? `${s / 3600}h` : `${s / 60}m`}
+              </button>
+            ))}
+          </div>
+          {errors['payment_window_duration_seconds'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['payment_window_duration_seconds']}</p>}
+        </form>
+      </SettingCard>
+
+      {/* Minimum Tap Time (Fraud Detection) */}
+      <SettingCard
+        icon={ShieldAlert} iconColor="text-red-600" iconBg="bg-red-50"
+        title="Fraud Detection — Minimum Tap Time"
+        description="If a buyer taps 'I've Paid' faster than this threshold, the transaction is flagged as suspicious."
+      >
+        <form onSubmit={e => { e.preventDefault(); save('minimum_tap_time_seconds', Number(minTapTime), () => { const n = Number(minTapTime); if (isNaN(n) || n < 5 || n > 300) return 'Must be between 5 and 300 seconds'; return null }) }}>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <input type="number" min={5} max={300} value={minTapTime} onChange={e => setMinTapTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">seconds</span>
+            </div>
+            <SaveButton loading={loading === 'minimum_tap_time_seconds'} saved={saved === 'minimum_tap_time_seconds'} />
+          </div>
+          <div className="flex gap-2 mt-2.5">
+            {[15, 30, 60, 90, 120].map(s => (
+              <button key={s} type="button" onClick={() => setMinTapTime(String(s))}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${minTapTime === String(s) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                {s}s
+              </button>
+            ))}
+          </div>
+          <p className="text-amber-600 text-xs mt-2.5 flex items-center gap-1.5 bg-amber-50 px-3 py-2 rounded-xl border border-amber-100">
+            <AlertTriangle size={11} /> Transactions tapped faster than this are auto-flagged for manual review.
+          </p>
+          {errors['minimum_tap_time_seconds'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['minimum_tap_time_seconds']}</p>}
+        </form>
+      </SettingCard>
+
+      {/* Receipt Auto-Confirm */}
+      <SettingCard
+        icon={ReceiptText} iconColor="text-teal-600" iconBg="bg-teal-50"
+        title="Receipt Auto-Confirm Timeout"
+        description="If the buyer doesn't confirm receipt within this window after the seller marks fulfilled, the transaction auto-completes."
+      >
+        <form onSubmit={e => { e.preventDefault(); save('receipt_auto_confirm_seconds', Number(receiptAutoConfirm), () => { const n = Number(receiptAutoConfirm); if (isNaN(n) || n < 1800 || n > 86400) return 'Must be between 30 minutes and 24 hours'; return null }) }}>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <input type="number" min={1800} max={86400} step={600} value={receiptAutoConfirm} onChange={e => setReceiptAutoConfirm(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">seconds</span>
+            </div>
+            <SaveButton loading={loading === 'receipt_auto_confirm_seconds'} saved={saved === 'receipt_auto_confirm_seconds'} />
+          </div>
+          <div className="flex gap-2 mt-2.5">
+            {[
+              { label: '1h',  val: 3600 },
+              { label: '3h',  val: 10800 },
+              { label: '6h',  val: 21600 },
+              { label: '12h', val: 43200 },
+              { label: '24h', val: 86400 },
+            ].map(({ label, val }) => (
+              <button key={val} type="button" onClick={() => setReceiptAutoConfirm(String(val))}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${receiptAutoConfirm === String(val) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {errors['receipt_auto_confirm_seconds'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['receipt_auto_confirm_seconds']}</p>}
         </form>
       </SettingCard>
 

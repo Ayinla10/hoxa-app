@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Check, X, Loader2, ChevronDown, ChevronUp, Phone, Globe } from 'lucide-react'
 import { approveSellerApplication, rejectSellerApplication } from '@/actions/profile'
 import { useRouter } from 'next/navigation'
+import CurrencyFlag from '@/components/ui/CurrencyFlag'
 
 export default function SellerApplicationRow({ application: a }: { application: any }) {
   const router = useRouter()
@@ -49,7 +50,15 @@ export default function SellerApplicationRow({ application: a }: { application: 
           <div className="mt-4 pt-4 border-t border-gray-100 grid sm:grid-cols-3 gap-3 text-sm">
             <div>
               <p className="text-gray-400 text-xs mb-1">Currencies</p>
-              <p className="font-medium text-gray-900">{a.currencies?.join(', ') || '—'}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {a.currencies?.length
+                  ? a.currencies.map((c: string) => (
+                      <span key={c} className="inline-flex items-center gap-1 font-medium text-gray-900">
+                        <CurrencyFlag code={c} size={14} /> {c}
+                      </span>
+                    ))
+                  : <span className="text-gray-400">—</span>}
+              </div>
             </div>
             <div>
               <p className="text-gray-400 text-xs mb-1">Payment Methods</p>

@@ -75,8 +75,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(loginPath, request.url))
   }
 
-  // Protect admin and seller sub-routes — single profile query
-  const needsRoleCheck = (pathname.startsWith('/admin/') || pathname.startsWith('/seller')) && user
+  // Role-check for protected routes — single profile query covers all cases
+  const needsRoleCheck = user && (
+    pathname.startsWith('/admin/') ||
+    pathname.startsWith('/seller') ||
+    pathname.startsWith('/dashboard')
+  )
   if (needsRoleCheck) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -91,16 +95,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith('/seller') && role !== 'seller' && role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
-  }
-
-  // Block admins from accessing user dashboard routes
-  if (pathname.startsWith('/dashboard') && user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (profile?.role === 'admin') {
+    if (pathname.startsWith('/dashboard') && role === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     }
   }

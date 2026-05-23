@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Bell, Search, Menu, X, ArrowUpRight,
-  LayoutDashboard, RefreshCw, ArrowLeftRight, Heart, User, Settings, LogOut
+  Bell, Menu, X, ArrowUpRight, Store,
+  LayoutDashboard, ArrowLeftRight, LifeBuoy, User, LogOut, Settings
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
@@ -16,14 +16,25 @@ interface Props {
   notifCount: number
   title?: string
   isSeller?: boolean
+  country?: string
 }
 
-export default function BuyerTopbar({ fullName, notifCount, title, isSeller = false }: Props) {
+function getCorridorForCountry(country?: string): string {
+  if (!country) return 'GHS ↔ XOF'
+  const c = country.toLowerCase()
+  if (c.includes('ghana')) return 'GHS ↔ XOF'
+  if (c.includes('senegal') || c.includes("côte d'ivoire") || c.includes('mali') || c.includes('burkina') || c.includes('niger') || c.includes('togo') || c.includes('benin') || c.includes('guinea-bissau')) return 'XOF ↔ GHS'
+  if (c.includes('cameroon') || c.includes('chad') || c.includes('gabon') || c.includes('congo') || c.includes('central african') || c.includes('equatorial')) return 'XAF ↔ GHS'
+  return 'GHS ↔ XOF'
+}
+
+export default function BuyerTopbar({ fullName, notifCount, title, isSeller = false, country }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const { t } = useI18n()
+  const corridor = getCorridorForCountry(country)
 
   useEffect(() => {
     if (!profileOpen) return
@@ -36,11 +47,10 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
 
   const nav = [
     { href: '/dashboard',               icon: LayoutDashboard, key: 'nav_dashboard' as const },
-    { href: '/dashboard/marketplace',   icon: RefreshCw,       key: 'nav_exchange' as const },
+    { href: '/dashboard/marketplace',   icon: Store,           key: 'nav_exchange' as const },
     { href: '/dashboard/transactions',  icon: ArrowLeftRight,  key: 'nav_transactions' as const },
     { href: '/dashboard/notifications', icon: Bell,            key: 'nav_notifications' as const },
-    { href: '/dashboard/saved-sellers', icon: Heart,           key: 'nav_saved_sellers' as const },
-    { href: '/dashboard/profile',       icon: User,            key: 'nav_profile' as const },
+    { href: '/dashboard/support',       icon: LifeBuoy,        key: 'nav_support' as const },
     { href: '/dashboard/settings',      icon: Settings,        key: 'nav_settings' as const },
   ]
 
@@ -52,15 +62,16 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 lg:px-6 py-3.5 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 lg:px-6 py-3.5 shadow-sm w-full max-w-full overflow-visible">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 w-full max-w-full">
 
-          {/* Desktop left — page title */}
-          <div className="hidden lg:block">
+          {/* Desktop left — logo + corridor */}
+          <div className="hidden lg:flex items-center gap-3">
             <p className="text-gray-900 font-bold text-base">{title ?? 'Dashboard'}</p>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full font-medium">{corridor}</span>
           </div>
 
-          {/* Mobile left — hamburger + logo + role badge */}
+          {/* Mobile left — hamburger + logo + corridor */}
           <div className="flex lg:hidden items-center gap-2">
             <button
               onClick={() => setDrawerOpen(true)}
@@ -70,6 +81,7 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
             </button>
             <div className="flex items-center gap-2">
               <img src="/hoxa-logo.png" alt="HOXA" className="h-6 flex-shrink-0" />
+              <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium">{corridor}</span>
               {isSeller && (
                 <Link
                   href="/seller/dashboard"
@@ -83,11 +95,16 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
             </div>
           </div>
 
-          {/* Right */}
+          {/* Right — notifications + profile avatar with online dot */}
           <div className="flex items-center gap-1 ml-auto">
-            <button className="hidden lg:flex p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-              <Search size={17} />
-            </button>
+            {isSeller && (
+              <Link
+                href="/seller/dashboard"
+                className="hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-xs font-bold hover:bg-blue-100 transition-colors mr-1"
+              >
+                {t('switch_to_seller')} <ArrowUpRight size={11} className="opacity-60" />
+              </Link>
+            )}
             <Link href="/dashboard/notifications"
               className="relative p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
               <Bell size={17} />
@@ -96,15 +113,17 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
               )}
             </Link>
             <div ref={profileRef} className="relative ml-1">
-              <button onClick={() => setProfileOpen(v => !v)} className="focus:outline-none">
+              <button onClick={() => setProfileOpen(v => !v)} className="focus:outline-none relative">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f5530] flex items-center justify-center text-white font-bold text-xs shadow-sm">
                   {fullName.charAt(0).toUpperCase()}
                 </div>
+                {/* Online indicator */}
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
               </button>
               {profileOpen && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1">
+                  <div className="fixed inset-0 z-[90]" onClick={() => setProfileOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-[100] py-1">
                     <p className="px-3 py-1.5 text-gray-400 text-xs font-medium truncate border-b border-gray-100 mb-1">{fullName}</p>
                     <Link href="/dashboard/profile" onClick={() => setProfileOpen(false)}
                       className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
@@ -112,7 +131,7 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
                     </Link>
                     <Link href="/dashboard/settings" onClick={() => setProfileOpen(false)}
                       className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Settings size={14} /> {t('nav_settings')}
+                      <Settings size={14} /> Settings
                     </Link>
                     <div className="border-t border-gray-100 mt-1 pt-1">
                       <button onClick={logout}
@@ -139,7 +158,7 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
       {/* Mobile drawer */}
       <div className={`lg:hidden fixed top-0 left-0 h-full w-72 bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
-        {/* Drawer header — gradient */}
+        {/* Drawer header */}
         <div className="bg-gradient-to-br from-[#18824a] to-[#0f5530] px-5 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/hoxa-logo-white.png" alt="HOXA" className="h-7" />
@@ -152,15 +171,20 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
           </button>
         </div>
 
-        {/* User strip */}
+        {/* User strip — taps through to profile */}
         <div className="flex items-center gap-3 px-5 py-3.5 bg-gray-50 border-b border-gray-100">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f5530] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-            {fullName.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-gray-900 text-sm font-semibold truncate">{fullName}</p>
-            <p className="text-gray-400 text-xs">{t('buyer_account')}</p>
-          </div>
+          <Link href="/dashboard/profile" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="relative flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f5530] flex items-center justify-center text-white font-bold text-sm">
+                {fullName.charAt(0).toUpperCase()}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-gray-900 text-sm font-semibold truncate">{fullName}</p>
+              <p className="text-gray-400 text-xs">{t('buyer_account')}</p>
+            </div>
+          </Link>
           <LanguageSwitcher variant="sidebar" />
         </div>
 

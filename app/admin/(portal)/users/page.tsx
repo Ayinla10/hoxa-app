@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import UserActionsMenu from './UserActionsMenu'
 import UsersPageClient from './UsersPageClient'
+import Link from 'next/link'
 import { Users, ShieldCheck, Store, User } from 'lucide-react'
 
 export default async function AdminUsersPage() {
@@ -27,6 +28,7 @@ export default async function AdminUsersPage() {
       phone: profile?.phone as string | undefined,
       country: profile?.country as string | undefined,
       admin_permissions: (profile?.admin_permissions ?? []) as string[],
+      is_banned: !!(u.banned_until) || !!(profile?.is_banned),
     }
   })
 
@@ -176,12 +178,15 @@ export default async function AdminUsersPage() {
                   {users.map((u: any) => (
                     <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f6a3d] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        <Link href={`/admin/users/${u.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${u.is_banned ? 'bg-gray-400' : 'bg-gradient-to-br from-[#18824a] to-[#0f6a3d]'}`}>
                             {(u.full_name ?? u.email ?? '?').charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-gray-900">{u.full_name ?? '—'}</span>
-                        </div>
+                          <div>
+                            <span className="font-medium text-gray-900">{u.full_name ?? '—'}</span>
+                            {u.is_banned && <span className="ml-2 text-[10px] font-bold text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">Banned</span>}
+                          </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-gray-600 font-mono text-xs">{u.email}</td>
                       <td className="px-4 py-3">
@@ -192,7 +197,7 @@ export default async function AdminUsersPage() {
                       <td className="px-4 py-3 text-gray-500">{u.country ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
-                        <UserActionsMenu userId={u.id} currentRole={u.role ?? 'buyer'} userName={u.full_name ?? u.email} />
+                        <UserActionsMenu userId={u.id} currentRole={u.role ?? 'buyer'} userName={u.full_name ?? u.email} isBanned={u.is_banned} />
                       </td>
                     </tr>
                   ))}

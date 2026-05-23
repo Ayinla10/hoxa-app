@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Loader2, CheckCircle2, ShieldCheck, Shield, Crown, Zap,
-  ChevronDown, ArrowLeft, AlertCircle,
+  ChevronDown, ArrowLeft, AlertCircle, Upload, ImageIcon, FileText,
 } from 'lucide-react'
 import { applyAsSeller } from '@/actions/profile'
+import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   fullName: string
@@ -29,6 +30,8 @@ export default function BecomeSellerClient({ fullName, country, momoNetworks, cu
   })
   const [selectedPairs, setSelectedPairs] = useState<string[]>([])
   const [agreements, setAgreements] = useState({ terms: false, escrow: false, accuracy: false })
+  const [idFile, setIdFile] = useState<File | null>(null)
+  const [selfieFile, setSelfieFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -54,6 +57,23 @@ export default function BecomeSellerClient({ fullName, country, momoNetworks, cu
 
     setLoading(true)
 
+    // Upload KYC documents to Supabase Storage
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError('Session expired. Please sign in again.'); setLoading(false); return }
+
+    const uploadFile = async (file: File, label: string) => {
+      const ext = file.name.split('.').pop()
+      const path = `${user.id}/${label}-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('kyc').upload(path, file, { upsert: true })
+      if (error) throw new Error(`Failed to upload ${label}: ${error.message}`)
+      return path
+    }
+
+    // KYC upload skipped for Tier 1 — grayed out in UI
+    const idPath = ''
+    const selfiePath = ''
+
     // Extract individual currencies from pairs for the seller record
     const currencies = [...new Set(selectedPairs.flatMap(p => p.split(' ⇄ ')))]
 
@@ -61,6 +81,8 @@ export default function BecomeSellerClient({ fullName, country, momoNetworks, cu
       currencies,
       payment_methods: [form.momo_network],
       daily_limit: parseFloat(form.daily_volume) || 0,
+      kyc_id_path: idPath,
+      kyc_selfie_path: selfiePath || undefined,
     })
 
     if (result.error) {
@@ -258,6 +280,94 @@ export default function BecomeSellerClient({ fullName, country, momoNetworks, cu
               <span className="text-gray-900 text-sm font-semibold">{country || 'Not set'}</span>
               <span className="text-gray-400 text-[10px]">(from your profile)</span>
             </div>
+          </div>
+        </div>
+
+        {/* KYC Documents — grayed out, Tier 2/3 only */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4 opacity-50 pointer-events-none select-none relative overflow-hidden">
+          {/* Coming soon overlay */}
+          <div className="absolute top-3 right-4">
+            <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full uppercase tracking-wide">Tier 2 & 3 Only</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">Identity Verification (KYC)</p>
+            <p className="text-gray-400 text-xs mt-0.5">Required for Tier 2 and above. Not needed for Tier 1 basic access.</p>
+          </div>
+
+          {/* Government ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Government-issued ID <span className="text-red-400">*</span>
+              <span className="text-gray-400 font-normal ml-1">(Passport, National ID, Driver's Licence)</span>
+            </label>
+            <label className={`flex items-center gap-3 px-4 py-4 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+              idFile ? 'border-[#177945]/40 bg-[#177945]/5' : 'border-gray-200 hover:border-[#177945]/40 hover:bg-gray-50'
+            }`}>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={e => setIdFile(e.target.files?.[0] ?? null)}
+              />
+              {idFile ? (
+                <>
+                  <FileText size={18} className="text-[#177945] flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 text-sm font-medium truncate">{idFile.name}</p>
+                    <p className="text-gray-400 text-xs">{(idFile.size / 1024).toFixed(0)} KB</p>
+                  </div>
+                  <CheckCircle2 size={16} className="text-[#177945] flex-shrink-0" />
+                </>
+              ) : (
+                <>
+                  <Upload size={18} className="text-gray-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-gray-700 text-sm font-medium">Upload ID document</p>
+                    <p className="text-gray-400 text-xs">Click to browse or drag and drop</p>
+                  </div>
+                </>
+              )}
+            </label>
+          </div>
+
+          {/* Selfie with ID (optional for Tier 1) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Selfie with ID <span className="text-gray-400 font-normal">(optional — speeds up review)</span>
+            </label>
+            <label className={`flex items-center gap-3 px-4 py-4 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+              selfieFile ? 'border-[#177945]/40 bg-[#177945]/5' : 'border-gray-200 hover:border-[#177945]/40 hover:bg-gray-50'
+            }`}>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => setSelfieFile(e.target.files?.[0] ?? null)}
+              />
+              {selfieFile ? (
+                <>
+                  <ImageIcon size={18} className="text-[#177945] flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 text-sm font-medium truncate">{selfieFile.name}</p>
+                    <p className="text-gray-400 text-xs">{(selfieFile.size / 1024).toFixed(0)} KB</p>
+                  </div>
+                  <CheckCircle2 size={16} className="text-[#177945] flex-shrink-0" />
+                </>
+              ) : (
+                <>
+                  <ImageIcon size={18} className="text-gray-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-gray-700 text-sm font-medium">Upload selfie with ID</p>
+                    <p className="text-gray-400 text-xs">Hold your ID next to your face, clearly visible</p>
+                  </div>
+                </>
+              )}
+            </label>
+          </div>
+
+          <div className="flex items-start gap-2 px-3 py-3 bg-blue-50 rounded-xl">
+            <ShieldCheck size={15} className="text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-blue-700 text-xs leading-relaxed">Your documents are encrypted and stored securely. They are only accessed by HOXA compliance staff for verification purposes.</p>
           </div>
         </div>
 

@@ -1,29 +1,48 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Loader2, ArrowRight } from 'lucide-react'
 import { createOffer, updateOffer, type OfferInput } from '@/actions/listings'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
+import CurrencyFlag from '@/components/ui/CurrencyFlag'
 
-const CURRENCY_PAIRS = [
-  { from: 'GHS', to: 'CFA' },
-  { from: 'CFA', to: 'GHS' },
-  { from: 'GHS', to: 'USD' },
-  { from: 'USD', to: 'GHS' },
-]
 const PAYMENT_METHODS = ['Mobile Money (MTN)', 'Mobile Money (Vodafone)', 'Mobile Money (AirtelTigo)', 'Bank Transfer', 'Wave', 'Orange Money']
+
+interface Corridor { send_currency: string; receive_currency: string }
 
 interface Props {
   onClose: () => void
   existing?: any
+  corridors?: Corridor[]
 }
 
-export default function CreateListingModal({ onClose, existing }: Props) {
+export default function CreateListingModal({ onClose, existing, corridors = [] }: Props) {
   const router = useRouter()
   const { t } = useI18n()
-  const [pair, setPair] = useState(existing ? `${existing.from_currency}-${existing.to_currency}` : '')
-  const [rate, setRate] = useState(existing?.rate?.toString() ?? '')
+
+  // Derive pairs from corridors prop; fallback to hardcoded if none loaded yet
+  const pairs: Corridor[] = corridors.length > 0
+    ? corridors
+    : [
+        { send_currency: 'GHS', receive_currency: 'XOF' },
+        { send_currency: 'XOF', receive_currency: 'GHS' },
+        { send_currency: 'GHS', receive_currency: 'USD' },
+        { send_currency: 'USD', receive_currency: 'GHS' },
+      ]
+
+  const defaultPair = existing
+    ? pairs.find(p => p.send_currency === existing.from_currency && p.receive_currency === existing.to_currency) ?? pairs[0]
+    : null
+
+  const [selectedPair, setSelectedPair] = useState<Corridor | null>(defaultPair)
+
+  // Natural rate inputs: "buyer sends X from_currency, receives Y to_currency"
+  const [sendAmt, setSendAmt] = useState(existing ? '1' : '')
+  const [receiveAmt, setReceiveAmt] = useState(
+    existing?.rate ? existing.rate.toString() : ''
+  )
+
   const [minAmount, setMinAmount] = useState(existing?.min_amount?.toString() ?? '')
   const [maxAmount, setMaxAmount] = useState(existing?.max_amount?.toString() ?? '')
   const [liquidity, setLiquidity] = useState(existing?.available_liquidity?.toString() ?? '')
@@ -31,7 +50,12 @@ export default function CreateListingModal({ onClose, existing }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedPair = CURRENCY_PAIRS.find(p => `${p.from}-${p.to}` === pair)
+  // Computed rate
+  const sendNum = parseFloat(sendAmt)
+  const receiveNum = parseFloat(receiveAmt)
+  const computedRate = (!isNaN(sendNum) && !isNaN(receiveNum) && sendNum > 0)
+    ? receiveNum / sendNum
+    : null
 
   function togglePayment(m: string) {
     setPayments(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
@@ -39,27 +63,26 @@ export default function CreateListingModal({ onClose, existing }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError('')
     if (!selectedPair) return setError(t('select_currency_pair'))
     if (payments.length === 0) return setError(t('select_payment_method'))
+    if (!computedRate || computedRate <= 0) return setError(t('invalid_rate'))
 
-    const rateNum = parseFloat(rate)
     const minNum = parseFloat(minAmount)
     const maxNum = parseFloat(maxAmount)
     const liqNum = parseFloat(liquidity)
 
-    if (isNaN(rateNum) || rateNum <= 0) return setError(t('invalid_rate'))
     if (isNaN(minNum) || minNum <= 0) return setError(t('invalid_min'))
     if (isNaN(maxNum) || maxNum <= 0) return setError(t('invalid_max'))
     if (minNum > maxNum) return setError(t('min_exceeds_max'))
     if (isNaN(liqNum) || liqNum <= 0) return setError(t('invalid_liquidity'))
 
-    setError('')
     setLoading(true)
 
     const input: OfferInput = {
-      from_currency: selectedPair.from,
-      to_currency: selectedPair.to,
-      rate: rateNum,
+      from_currency: selectedPair.send_currency,
+      to_currency: selectedPair.receive_currency,
+      rate: computedRate,
       min_amount: minNum,
       max_amount: maxNum,
       available_liquidity: liqNum,
@@ -89,46 +112,98 @@ export default function CreateListingModal({ onClose, existing }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
           {/* Currency pair */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('currency_pair')}</label>
-            <div className="grid grid-cols-2 gap-2">
-              {CURRENCY_PAIRS.map(p => {
-                const val = `${p.from}-${p.to}`
-                return (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setPair(val)}
-                    className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
-                      pair === val ? 'bg-[#177945] text-white border-[#177945]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#177945]/40'
-                    }`}
-                  >
-                    {p.from} → {p.to}
-                  </button>
-                )
-              })}
-            </div>
+            {pairs.length === 0 ? (
+              <p className="text-sm text-gray-400 py-3 text-center">No active corridors available. Ask your admin to add corridors first.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {pairs.map(p => {
+                  const isActive = selectedPair?.send_currency === p.send_currency && selectedPair?.receive_currency === p.receive_currency
+                  return (
+                    <button
+                      key={`${p.send_currency}-${p.receive_currency}`}
+                      type="button"
+                      onClick={() => { setSelectedPair(p); setSendAmt(''); setReceiveAmt('') }}
+                      className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                        isActive ? 'bg-[#177945] text-white border-[#177945]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#177945]/40'
+                      }`}
+                    >
+                      <CurrencyFlag code={p.send_currency} size={16} /> {p.send_currency} → <CurrencyFlag code={p.receive_currency} size={16} /> {p.receive_currency}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Rate */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              {t('rate')} {selectedPair ? `(1 ${selectedPair.from} = ? ${selectedPair.to})` : ''}
-            </label>
-            <input type="number" step="0.0001" value={rate} onChange={e => setRate(e.target.value)} placeholder="e.g. 65.4" required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all" />
-          </div>
+          {/* Natural rate input */}
+          {selectedPair && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Your Exchange Rate</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-400 mb-1">Buyer sends ({selectedPair.send_currency})</p>
+                  <input
+                    type="number"
+                    value={sendAmt}
+                    onChange={e => setSendAmt(e.target.value)}
+                    placeholder="e.g. 10000"
+                    min="0.0001"
+                    step="any"
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all"
+                  />
+                </div>
+                <ArrowRight size={16} className="text-gray-400 flex-shrink-0 mt-4" />
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-400 mb-1">Buyer receives ({selectedPair.receive_currency})</p>
+                  <input
+                    type="number"
+                    value={receiveAmt}
+                    onChange={e => setReceiveAmt(e.target.value)}
+                    placeholder="e.g. 218"
+                    min="0.0001"
+                    step="any"
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Live rate preview */}
+              {computedRate !== null && sendAmt && receiveAmt && (
+                <div className="mt-2 px-3 py-2 rounded-xl bg-[#177945]/5 border border-[#177945]/20 flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-xs text-[#177945] font-semibold flex-wrap">
+                    <CurrencyFlag code={selectedPair.send_currency} size={14} />
+                    {parseFloat(sendAmt).toLocaleString()} {selectedPair.send_currency}
+                    {' → '}
+                    <CurrencyFlag code={selectedPair.receive_currency} size={14} />
+                    {parseFloat(receiveAmt).toLocaleString()} {selectedPair.receive_currency}
+                  </span>
+                  <span className="text-[10px] text-gray-400 ml-auto">
+                    rate: {computedRate.toFixed(6)} {selectedPair.receive_currency}/{selectedPair.send_currency}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Min / Max */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('min_amount')}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                {t('min_amount')}{selectedPair ? ` (${selectedPair.send_currency})` : ''}
+              </label>
               <input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="100" required
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('max_amount')}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                {t('max_amount')}{selectedPair ? ` (${selectedPair.send_currency})` : ''}
+              </label>
               <input type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} placeholder="5000" required
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all" />
             </div>
@@ -136,7 +211,9 @@ export default function CreateListingModal({ onClose, existing }: Props) {
 
           {/* Liquidity */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('available_liquidity_label')}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              {t('available_liquidity_label')}{selectedPair ? ` (${selectedPair.receive_currency})` : ''}
+            </label>
             <input type="number" value={liquidity} onChange={e => setLiquidity(e.target.value)} placeholder="e.g. 50000" required
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all" />
           </div>

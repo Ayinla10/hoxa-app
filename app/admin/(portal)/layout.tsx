@@ -4,6 +4,8 @@ import { getAuthUser, getProfile, createServiceClient } from '@/lib/supabase/ser
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminBottomNav from '@/components/admin/AdminBottomNav'
 import SessionGuard from '@/components/SessionGuard'
+import RealtimeNotificationProvider from '@/components/RealtimeNotificationProvider'
+import PushNotificationSetup from '@/components/PushNotificationSetup'
 import { getSettings } from '@/actions/settings'
 
 export const metadata: Metadata = {
@@ -15,13 +17,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { user, supabase } = await getAuthUser()
   if (!user) redirect('/admin')
 
-  // Fetch profile, pending escrow count, and settings in parallel
-  const [profile, pendingResult, settings] = await Promise.all([
+  // Fetch profile, pending counts, and settings in parallel
+  const service = createServiceClient()
+  const [profile, pendingResult, pendingSettlementResult, settings] = await Promise.all([
     getProfile(),
-    createServiceClient()
-      .from('transactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'payment_submitted'),
+    service.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending_ops_confirmation'),
+    service.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending_settlement'),
     getSettings(),
   ])
 
@@ -35,12 +36,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-[#F7F9F8]">
-      <AdminSidebar adminName={profile?.full_name ?? 'Admin'} pendingEscrow={pendingResult.count ?? 0} />
+      <AdminSidebar adminName={profile?.full_name ?? 'Admin'} pendingEscrow={pendingResult.count ?? 0} pendingSettlement={pendingSettlementResult.count ?? 0} />
       <div className="lg:pl-64 pb-20 lg:pb-0">
         {children}
       </div>
       <AdminBottomNav />
       <SessionGuard timeoutMinutes={sessionTimeout} logoutPath="/admin" />
+      <RealtimeNotificationProvider userId={user.id} />
+      <PushNotificationSetup userId={user.id} />
     </div>
   )
 }

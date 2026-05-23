@@ -2,36 +2,49 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { markFulfilled } from '@/actions/transactions'
+import { sellerMarkFulfilled } from '@/actions/exchange'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeftRight, CheckCircle2, Clock, XCircle,
-  AlertTriangle, Loader2, ChevronRight, Filter,
+  AlertTriangle, Loader2, Filter, SendHorizonal,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 import type { TKey } from '@/lib/i18n'
 
-const STATUS_KEYS: Record<string, { labelKey: TKey; pill: string; dot: string }> = {
-  completed:         { labelKey: 'status_completed',  pill: 'bg-green-50 text-green-700 border-green-200',       dot: 'bg-green-500' },
-  seller_rejected:   { labelKey: 'status_rejected',   pill: 'bg-red-50 text-red-600 border-red-200',            dot: 'bg-red-500' },
-  seller_timeout:    { labelKey: 'status_timed_out',   pill: 'bg-red-50 text-red-600 border-red-200',            dot: 'bg-red-500' },
-  cancelled:         { labelKey: 'status_cancelled',   pill: 'bg-red-50 text-red-600 border-red-200',            dot: 'bg-red-500' },
-  disputed:          { labelKey: 'status_disputed',    pill: 'bg-purple-50 text-purple-700 border-purple-200',   dot: 'bg-purple-500' },
-  payment_submitted: { labelKey: 'status_proof_sent',  pill: 'bg-blue-50 text-blue-700 border-blue-200',         dot: 'bg-blue-500' },
-  payment_verified:  { labelKey: 'status_verified',    pill: 'bg-teal-50 text-teal-700 border-teal-200',         dot: 'bg-teal-500' },
-  seller_accepted:   { labelKey: 'status_accepted',    pill: 'bg-[#18824a]/10 text-[#18824a] border-[#18824a]/20', dot: 'bg-[#18824a]' },
-  pending_seller:    { labelKey: 'status_pending',     pill: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500' },
+const STATUS_KEYS: Record<string, { label: string; pill: string; dot: string }> = {
+  // V5.1 flow (only)
+  pending_acceptance:          { label: 'Pending',           pill: 'bg-amber-50 text-amber-700 border-amber-200',          dot: 'bg-amber-500' },
+  awaiting_payment:            { label: 'Awaiting Payment',  pill: 'bg-amber-50 text-amber-700 border-amber-200',          dot: 'bg-amber-400' },
+  pending_ops_confirmation:    { label: 'Verifying Payment', pill: 'bg-blue-50 text-blue-700 border-blue-200',             dot: 'bg-blue-500' },
+  fulfillment_in_progress:     { label: 'Send Funds ⚡',     pill: 'bg-teal-50 text-teal-700 border-teal-200',             dot: 'bg-teal-500' },
+  pending_receipt_confirmation:{ label: 'Awaiting Receipt',  pill: 'bg-green-50 text-green-700 border-green-200',          dot: 'bg-green-400' },
+  pending_settlement:          { label: 'Settling',          pill: 'bg-green-50 text-green-700 border-green-200',          dot: 'bg-green-500' },
+  fully_completed:             { label: 'Completed',         pill: 'bg-green-100 text-green-800 border-green-300',         dot: 'bg-green-600' },
+  // Terminal
+  seller_rejected:             { label: 'Rejected',          pill: 'bg-red-50 text-red-600 border-red-200',                dot: 'bg-red-500' },
+  seller_timeout:              { label: 'Timed Out',         pill: 'bg-red-50 text-red-600 border-red-200',                dot: 'bg-red-500' },
+  cancelled:                   { label: 'Cancelled',         pill: 'bg-red-50 text-red-600 border-red-200',                dot: 'bg-red-500' },
+  disputed:                    { label: 'Disputed',          pill: 'bg-purple-50 text-purple-700 border-purple-200',       dot: 'bg-purple-500' },
+  expired:                     { label: 'Expired',           pill: 'bg-gray-100 text-gray-500 border-gray-200',            dot: 'bg-gray-400' },
 }
 
-const FILTER_KEYS: { value: string; labelKey: TKey }[] = [
-  { value: 'all', labelKey: 'all' },
-  { value: 'active', labelKey: 'active' },
-  { value: 'completed', labelKey: 'status_completed' },
-  { value: 'rejected', labelKey: 'rejected' },
+const FILTER_KEYS: { value: string; label: string }[] = [
+  { value: 'all',       label: 'All' },
+  { value: 'action',    label: 'Action Needed' },
+  { value: 'disputed',  label: 'Disputes' },
+  { value: 'active',    label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'rejected',  label: 'Rejected' },
 ]
 
-const ACTIVE_STATUSES = ['pending_seller', 'seller_accepted', 'payment_submitted', 'payment_verified']
-const REJECTED_STATUSES = ['seller_rejected', 'seller_timeout', 'cancelled']
+const ACTIVE_STATUSES = [
+  'pending_acceptance', 'awaiting_payment', 'pending_ops_confirmation',
+  'fulfillment_in_progress', 'pending_receipt_confirmation', 'pending_settlement',
+]
+const ACTION_STATUSES = ['fulfillment_in_progress']
+const DISPUTED_STATUSES = ['disputed']
+const REJECTED_STATUSES = ['seller_rejected', 'seller_timeout', 'cancelled', 'expired']
+const COMPLETED_STATUSES = ['fully_completed']
 
 interface Props {
   transactions: any[]
@@ -42,28 +55,33 @@ export default function SellerTransactionsClient({ transactions }: Props) {
   const { t } = useI18n()
   const [filter, setFilter] = useState('all')
   const [fulfilling, setFulfilling] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const filtered = transactions.filter(tx => {
     if (filter === 'all') return true
     if (filter === 'active') return ACTIVE_STATUSES.includes(tx.status)
-    if (filter === 'completed') return tx.status === 'completed'
+    if (filter === 'action') return ACTION_STATUSES.includes(tx.status)
+    if (filter === 'disputed') return DISPUTED_STATUSES.includes(tx.status)
+    if (filter === 'completed') return COMPLETED_STATUSES.includes(tx.status)
     if (filter === 'rejected') return REJECTED_STATUSES.includes(tx.status)
     return true
   })
 
   const counts = {
     all: transactions.length,
-    active: transactions.filter(t => ACTIVE_STATUSES.includes(t.status)).length,
-    completed: transactions.filter(t => t.status === 'completed').length,
-    rejected: transactions.filter(t => REJECTED_STATUSES.includes(t.status)).length,
+    active: transactions.filter(tx => ACTIVE_STATUSES.includes(tx.status)).length,
+    action: transactions.filter(tx => ACTION_STATUSES.includes(tx.status)).length,
+    disputed: transactions.filter(tx => DISPUTED_STATUSES.includes(tx.status)).length,
+    completed: transactions.filter(tx => COMPLETED_STATUSES.includes(tx.status)).length,
+    rejected: transactions.filter(tx => REJECTED_STATUSES.includes(tx.status)).length,
   }
 
-  const [error, setError] = useState('')
+  const disputedTxs = transactions.filter(tx => tx.status === 'disputed')
 
-  async function handleFulfill(txId: string) {
+  async function handleFulfillV5(txId: string) {
     setFulfilling(txId)
     setError('')
-    const res = await markFulfilled(txId)
+    const res = await sellerMarkFulfilled(txId)
     if (res?.error) setError(res.error)
     else router.refresh()
     setFulfilling(null)
@@ -71,8 +89,8 @@ export default function SellerTransactionsClient({ transactions }: Props) {
 
   function getStatus(status: string) {
     const cfg = STATUS_KEYS[status]
-    if (!cfg) return { label: t('status_unknown'), pill: 'bg-gray-100 text-gray-500 border-gray-200', dot: 'bg-gray-400' }
-    return { label: t(cfg.labelKey), pill: cfg.pill, dot: cfg.dot }
+    if (!cfg) return { label: status.replace(/_/g, ' '), pill: 'bg-gray-100 text-gray-500 border-gray-200', dot: 'bg-gray-400' }
+    return { label: cfg.label, pill: cfg.pill, dot: cfg.dot }
   }
 
   return (
@@ -86,10 +104,10 @@ export default function SellerTransactionsClient({ transactions }: Props) {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: t('total'), value: counts.all, icon: ArrowLeftRight, color: 'text-gray-600', bg: 'bg-gray-100' },
-          { label: t('active'), value: counts.active, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: t('status_completed'), value: counts.completed, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: t('rejected'), value: counts.rejected, icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
+          { label: 'Total', value: counts.all, icon: ArrowLeftRight, color: 'text-gray-600', bg: 'bg-gray-100' },
+          { label: 'Action Needed', value: counts.action, icon: SendHorizonal, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { label: 'Completed', value: counts.completed, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Disputes', value: counts.disputed, icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
             <div className={`w-8 h-8 rounded-xl ${s.bg} flex items-center justify-center mb-2`}>
@@ -101,8 +119,39 @@ export default function SellerTransactionsClient({ transactions }: Props) {
         ))}
       </div>
 
+      {/* Dispute alert banner */}
+      {disputedTxs.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-600 flex-shrink-0" />
+            <p className="text-red-800 font-bold text-sm">
+              {disputedTxs.length} active dispute{disputedTxs.length > 1 ? 's' : ''} — funds frozen
+            </p>
+          </div>
+          <p className="text-red-600 text-xs leading-relaxed">
+            A buyer has disputed one or more of your transactions. Funds are held by HOXA until the issue is resolved. Please contact support if you believe this is an error.
+          </p>
+          {disputedTxs.map(tx => (
+            <div key={tx.id} className="bg-white rounded-xl px-3 py-2.5 border border-red-100">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-gray-900 font-semibold text-xs">
+                    {(tx.from_amount ?? tx.send_amount)?.toLocaleString()} {tx.from_currency ?? tx.send_currency} → {(tx.to_amount ?? tx.receive_amount)?.toFixed(2)} {tx.to_currency ?? tx.receive_currency}
+                  </p>
+                  <p className="text-gray-400 text-xs">{tx.profiles?.full_name ?? 'Buyer'} · {new Date(tx.created_at).toLocaleDateString()}</p>
+                  {tx.dispute_reason && (
+                    <p className="text-red-600 text-xs mt-1 font-medium">Reason: {tx.dispute_reason}</p>
+                  )}
+                </div>
+                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg font-semibold flex-shrink-0">Disputed</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Filter size={14} className="text-gray-400" />
         {FILTER_KEYS.map(f => (
           <button
@@ -114,7 +163,7 @@ export default function SellerTransactionsClient({ transactions }: Props) {
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
-            {t(f.labelKey)} ({counts[f.value as keyof typeof counts]})
+            {f.label} ({counts[f.value as keyof typeof counts] ?? 0})
           </button>
         ))}
       </div>
@@ -148,7 +197,7 @@ export default function SellerTransactionsClient({ transactions }: Props) {
                 {filtered.map(tx => {
                   const st = getStatus(tx.status)
                   return (
-                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => router.push(`/seller/transactions/${tx.id}`)}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f6a3d] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -174,15 +223,20 @@ export default function SellerTransactionsClient({ transactions }: Props) {
                         {new Date(tx.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                       </td>
                       <td className="px-4 py-3">
-                        {tx.status === 'payment_verified' && (
+                        {tx.status === 'fulfillment_in_progress' && (
                           <button
-                            onClick={() => handleFulfill(tx.id)}
+                            onClick={() => handleFulfillV5(tx.id)}
                             disabled={fulfilling === tx.id}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#18824a] to-[#0f6a3d] text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
                           >
-                            {fulfilling === tx.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                            {t('fulfil')}
+                            {fulfilling === tx.id ? <Loader2 size={12} className="animate-spin" /> : <SendHorizonal size={12} />}
+                            I've Sent
                           </button>
+                        )}
+                        {tx.status === 'disputed' && tx.dispute_reason && (
+                          <span className="text-xs text-red-600 bg-red-50 border border-red-100 px-2 py-1 rounded-lg max-w-[160px] truncate block">
+                            {tx.dispute_reason}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -197,7 +251,7 @@ export default function SellerTransactionsClient({ transactions }: Props) {
             {filtered.map(tx => {
               const st = getStatus(tx.status)
               return (
-                <div key={tx.id} className="px-4 py-3.5 space-y-2">
+                <div key={tx.id} className="px-4 py-3.5 space-y-2 cursor-pointer" onClick={() => router.push(`/seller/transactions/${tx.id}`)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#18824a] to-[#0f6a3d] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -217,14 +271,14 @@ export default function SellerTransactionsClient({ transactions }: Props) {
                     <p className="text-gray-900 font-semibold text-sm">
                       {tx.from_amount?.toLocaleString()} {tx.from_currency} → {tx.to_amount?.toFixed(2)} {tx.to_currency}
                     </p>
-                    {tx.status === 'payment_verified' && (
+                    {tx.status === 'fulfillment_in_progress' && (
                       <button
-                        onClick={() => handleFulfill(tx.id)}
+                        onClick={() => handleFulfillV5(tx.id)}
                         disabled={fulfilling === tx.id}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#18824a] to-[#0f6a3d] text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50"
                       >
-                        {fulfilling === tx.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                        Fulfil
+                        {fulfilling === tx.id ? <Loader2 size={12} className="animate-spin" /> : <SendHorizonal size={12} />}
+                        I've Sent
                       </button>
                     )}
                   </div>

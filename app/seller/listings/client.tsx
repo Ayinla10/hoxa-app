@@ -6,7 +6,9 @@ import ListingCard from '@/components/seller/ListingCard'
 import CreateListingModal from '@/components/seller/CreateListingModal'
 import { useI18n } from '@/lib/i18n-context'
 
-export default function SellerListingsClient({ offers }: { offers: any[] }) {
+interface Corridor { send_currency: string; receive_currency: string }
+
+export default function SellerListingsClient({ offers, corridors = [] }: { offers: any[]; corridors?: Corridor[] }) {
   const [showCreate, setShowCreate] = useState(false)
   const [editingOffer, setEditingOffer] = useState<any>(null)
   const { t } = useI18n()
@@ -59,8 +61,8 @@ export default function SellerListingsClient({ offers }: { offers: any[] }) {
         </div>
       )}
 
-      {showCreate && <CreateListingModal onClose={() => setShowCreate(false)} />}
-      {editingOffer && <CreateListingModal existing={editingOffer} onClose={() => setEditingOffer(null)} />}
+      {showCreate && <CreateListingModal corridors={corridors} onClose={() => setShowCreate(false)} />}
+      {editingOffer && <CreateListingModal corridors={corridors} existing={editingOffer} onClose={() => setEditingOffer(null)} />}
     </div>
   )
 }

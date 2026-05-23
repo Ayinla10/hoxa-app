@@ -21,17 +21,17 @@ export default function ExchangeOverviewCard({
   const lastName = fullName.split(' ').pop() ?? fullName
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#18824a] via-[#146b3e] to-[#0f5530] text-white">
-      {/* Decorative rings */}
-      <div className="absolute -top-14 -right-14 w-56 h-56 rounded-full border border-white/8 pointer-events-none" />
-      <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full border border-white/8 pointer-events-none" />
+    <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#18824a] via-[#146b3e] to-[#0f5530] text-white w-full max-w-full">
+      {/* Decorative rings — hidden on very small screens to prevent overflow */}
+      <div className="absolute -top-14 -right-14 w-56 h-56 rounded-full border border-white/8 pointer-events-none hidden sm:block" />
+      <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full border border-white/8 pointer-events-none hidden sm:block" />
       <div className="absolute bottom-0 left-1/4 w-72 h-24 rounded-full bg-white/[0.03] blur-2xl pointer-events-none" />
 
-      <div className="relative px-6 py-6 lg:px-8 lg:py-7">
+      <div className="relative px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
         {/* Top row */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex items-start justify-between mb-5 sm:mb-6 gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] text-white/50 font-semibold uppercase tracking-widest">Exchange Hub</span>
               {activeTransactions > 0 && (
                 <span className="flex items-center gap-1 text-[10px] text-amber-300 font-semibold bg-amber-300/10 border border-amber-300/20 px-2 py-0.5 rounded-full">
@@ -41,48 +41,48 @@ export default function ExchangeOverviewCard({
               )}
             </div>
             <p className="text-white/55 text-sm">{greeting}</p>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white mt-0.5">{lastName} 👋</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mt-0.5 truncate">{lastName} 👋</h1>
             <p className="text-white/40 text-xs mt-1">{t('exchange_activity')}</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-white/12 border border-white/15 flex items-center justify-center flex-shrink-0">
-            <ShieldCheck size={20} className="text-green-300" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/12 border border-white/15 flex items-center justify-center flex-shrink-0">
+            <ShieldCheck size={18} className="text-green-300" />
           </div>
         </div>
 
         {/* Stats + CTA */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
-          {/* Stat tiles */}
-          <div className="flex gap-3 flex-1">
-            <div className="flex-1 bg-white/10 border border-white/12 rounded-xl px-4 py-3.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <CheckCircle2 size={11} className="text-green-400" />
-                <p className="text-white/50 text-[10px] font-semibold uppercase tracking-wider">{t('completed')}</p>
+          {/* Stat tiles — grid on mobile for clean 3-column, flex on desktop */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 flex-1 min-w-0">
+            <div className="bg-white/10 border border-white/12 rounded-xl px-3 sm:px-4 py-3">
+              <div className="flex items-center gap-1 mb-1.5">
+                <CheckCircle2 size={10} className="text-green-400 flex-shrink-0" />
+                <p className="text-white/50 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate">{t('completed')}</p>
               </div>
-              <p className="text-white font-bold text-2xl leading-none">{successfulExchanges}</p>
-              <p className="text-white/35 text-[10px] mt-1">{t('exchanges')}</p>
+              <p className="text-white font-bold text-xl sm:text-2xl leading-none">{successfulExchanges}</p>
+              <p className="text-white/35 text-[9px] sm:text-[10px] mt-1 truncate">{t('exchanges')}</p>
             </div>
 
-            <div className="flex-1 bg-white/10 border border-white/12 rounded-xl px-4 py-3.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <RefreshCw size={11} className={activeTransactions > 0 ? 'text-amber-400' : 'text-white/30'} />
-                <p className="text-white/50 text-[10px] font-semibold uppercase tracking-wider">{t('active')}</p>
+            <div className="bg-white/10 border border-white/12 rounded-xl px-3 sm:px-4 py-3">
+              <div className="flex items-center gap-1 mb-1.5">
+                <RefreshCw size={10} className={`flex-shrink-0 ${activeTransactions > 0 ? 'text-amber-400' : 'text-white/30'}`} />
+                <p className="text-white/50 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate">{t('active')}</p>
               </div>
-              <p className={`font-bold text-2xl leading-none ${activeTransactions > 0 ? 'text-amber-300' : 'text-white'}`}>
+              <p className={`font-bold text-xl sm:text-2xl leading-none ${activeTransactions > 0 ? 'text-amber-300' : 'text-white'}`}>
                 {activeTransactions}
               </p>
               {activeTransactions > 0
-                ? <div className="flex items-center gap-1 mt-1"><span className="w-1 h-1 bg-amber-400 rounded-full animate-pulse" /><span className="text-amber-400/70 text-[10px]">{t('in_progress')}</span></div>
-                : <p className="text-white/35 text-[10px] mt-1">{t('in_progress')}</p>
+                ? <div className="flex items-center gap-1 mt-1"><span className="w-1 h-1 bg-amber-400 rounded-full animate-pulse" /><span className="text-amber-400/70 text-[9px] sm:text-[10px] truncate">{t('in_progress')}</span></div>
+                : <p className="text-white/35 text-[9px] sm:text-[10px] mt-1 truncate">{t('in_progress')}</p>
               }
             </div>
 
-            <div className="flex-1 bg-white/10 border border-white/12 rounded-xl px-4 py-3.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Clock size={11} className="text-blue-400" />
-                <p className="text-white/50 text-[10px] font-semibold uppercase tracking-wider">{t('avg_speed')}</p>
+            <div className="bg-white/10 border border-white/12 rounded-xl px-3 sm:px-4 py-3">
+              <div className="flex items-center gap-1 mb-1.5">
+                <Clock size={10} className="text-blue-400 flex-shrink-0" />
+                <p className="text-white/50 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate">{t('avg_speed')}</p>
               </div>
-              <p className="text-white font-bold text-2xl leading-none">{avgCompletionMins > 0 ? avgCompletionMins : '—'}</p>
-              <p className="text-white/35 text-[10px] mt-1">{avgCompletionMins > 0 ? t('minutes') : t('no_data')}</p>
+              <p className="text-white font-bold text-xl sm:text-2xl leading-none">{avgCompletionMins > 0 ? avgCompletionMins : '—'}</p>
+              <p className="text-white/35 text-[9px] sm:text-[10px] mt-1 truncate">{avgCompletionMins > 0 ? t('minutes') : t('no_data')}</p>
             </div>
           </div>
 

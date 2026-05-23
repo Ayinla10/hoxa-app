@@ -7,20 +7,23 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Bell, Search, Activity, Menu, X,
   LayoutDashboard, ArrowLeftRight, CreditCard, Users, Store,
-  AlertTriangle, BarChart2, Shield, Settings, LogOut, ChevronRight
+  Settings, LogOut, ChevronRight, AlertTriangle, Banknote,
+  BarChart2, Shield, Globe
 } from 'lucide-react'
 
 const nav = [
-  { href: '/admin/dashboard',    icon: LayoutDashboard, label: 'Overview',     group: 'Operations' },
-  { href: '/admin/transactions', icon: ArrowLeftRight,  label: 'Transactions', group: 'Operations' },
-  { href: '/admin/escrow',       icon: CreditCard,      label: 'Escrow Queue', group: 'Operations' },
-  { href: '/admin/users',        icon: Users,           label: 'Users',        group: 'Management' },
-  { href: '/admin/sellers',      icon: Store,           label: 'Sellers',      group: 'Management' },
-  { href: '/admin/disputes',     icon: AlertTriangle,   label: 'Disputes',     group: 'Management' },
-  { href: '/admin/analytics',    icon: BarChart2,       label: 'Analytics',    group: 'System' },
-  { href: '/admin/alerts',       icon: Bell,            label: 'Alerts',       group: 'System' },
-  { href: '/admin/risk',         icon: Shield,          label: 'Risk Control', group: 'System' },
-  { href: '/admin/settings',     icon: Settings,        label: 'Settings',     group: 'System' },
+  { href: '/admin/dashboard',        icon: LayoutDashboard, label: 'Overview',            group: 'Operations', badge: ''       },
+  { href: '/admin/transactions',     icon: ArrowLeftRight,  label: 'Transactions',        group: 'Operations', badge: ''       },
+  { href: '/admin/payment-review',   icon: CreditCard,      label: 'Payment Review',      group: 'Operations', badge: 'ops'    },
+  { href: '/admin/settlement',       icon: Banknote,        label: 'Settlement',          group: 'Operations', badge: 'settle' },
+  { href: '/admin/disputes',         icon: AlertTriangle,   label: 'Disputes',            group: 'Operations', badge: ''       },
+  { href: '/admin/corridors',        icon: Globe,           label: 'Corridors',           group: 'Operations', badge: ''       },
+  { href: '/admin/users',            icon: Users,           label: 'Users',               group: 'Management', badge: ''       },
+  { href: '/admin/sellers',          icon: Store,           label: 'Seller Applications', group: 'Management', badge: ''       },
+  { href: '/admin/risk',             icon: Shield,          label: 'Risk',                group: 'Management', badge: ''       },
+  { href: '/admin/alerts',           icon: Bell,            label: 'Alerts',              group: 'Management', badge: ''       },
+  { href: '/admin/analytics',        icon: BarChart2,       label: 'Analytics',           group: 'System',     badge: ''       },
+  { href: '/admin/settings',         icon: Settings,        label: 'Settings',            group: 'System',     badge: ''       },
 ]
 
 const groups = ['Operations', 'Management', 'System']
@@ -30,9 +33,10 @@ interface Props {
   adminName?: string
   notifCount?: number
   pendingEscrow?: number
+  pendingSettlement?: number
 }
 
-export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0, pendingEscrow = 0 }: Props) {
+export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0, pendingEscrow = 0, pendingSettlement = 0 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
 
@@ -139,9 +143,11 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
               <div key={group}>
                 <p className="px-3 mb-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">{group}</p>
                 <div className="space-y-0.5">
-                  {items.map(({ href, icon: Icon, label }) => {
-                    const active = pathname === href || pathname.startsWith(href + '/')
-                    const showBadge = href === '/admin/escrow' && pendingEscrow > 0
+                  {items.map(({ href, icon: Icon, label, badge }) => {
+                    const basePath = href.split('?')[0]
+                    const active = pathname === basePath || pathname.startsWith(basePath + '/')
+                    const showEscrowBadge = badge === 'ops' && pendingEscrow > 0
+                    const showSettleBadge = badge === 'settle' && pendingSettlement > 0
                     return (
                       <Link
                         key={href}
@@ -153,9 +159,14 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
                         {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#18824a] rounded-r-full" />}
                         <Icon size={16} className={active ? 'text-[#18824a]' : 'text-gray-400'} />
                         <span className="flex-1">{label}</span>
-                        {showBadge && (
+                        {showEscrowBadge && (
                           <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
                             {pendingEscrow > 9 ? '9+' : pendingEscrow}
+                          </span>
+                        )}
+                        {showSettleBadge && (
+                          <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                            {pendingSettlement > 9 ? '9+' : pendingSettlement}
                           </span>
                         )}
                         {active && <ChevronRight size={12} className="text-[#18824a]/40" />}

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { LayoutDashboard, ArrowLeftRight, Bell, Heart, User, Settings, LogOut, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Store, LifeBuoy, Bell, LogOut, Settings } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 
@@ -14,13 +14,12 @@ export default function BuyerSidebar({ fullName, notifCount }: Props) {
   const { t } = useI18n()
 
   const nav = [
-    { href: '/dashboard',               icon: LayoutDashboard, key: 'nav_dashboard' as const },
-    { href: '/dashboard/marketplace',   icon: RefreshCw,       key: 'nav_exchange' as const },
-    { href: '/dashboard/transactions',  icon: ArrowLeftRight,  key: 'nav_transactions' as const },
-    { href: '/dashboard/notifications', icon: Bell,            key: 'nav_notifications' as const },
-    { href: '/dashboard/saved-sellers', icon: Heart,           key: 'nav_saved_sellers' as const },
-    { href: '/dashboard/profile',       icon: User,            key: 'nav_profile' as const },
-    { href: '/dashboard/settings',      icon: Settings,        key: 'nav_settings' as const },
+    { href: '/dashboard',              icon: LayoutDashboard, key: 'nav_dashboard' as const },
+    { href: '/dashboard/marketplace',  icon: Store,           key: 'nav_exchange' as const },
+    { href: '/dashboard/transactions', icon: ArrowLeftRight,  key: 'nav_transactions' as const },
+    { href: '/dashboard/notifications', icon: Bell,           key: 'nav_notifications' as const },
+    { href: '/dashboard/support',      icon: LifeBuoy,        key: 'nav_support' as const },
+    { href: '/dashboard/settings',     icon: Settings,        key: 'nav_settings' as const },
   ]
 
   async function logout() {
@@ -64,7 +63,7 @@ export default function BuyerSidebar({ fullName, notifCount }: Props) {
       </nav>
 
       <div className="px-4 py-4 border-t border-white/10 space-y-1">
-        <div className="flex items-center gap-3 px-3 py-2">
+        <Link href="/dashboard/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#177945] to-[#1a9152] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
             {fullName.charAt(0).toUpperCase()}
           </div>
@@ -72,7 +71,7 @@ export default function BuyerSidebar({ fullName, notifCount }: Props) {
             <p className="text-white text-sm font-semibold truncate">{fullName}</p>
             <p className="text-white/40 text-xs">{t('buyer_account')}</p>
           </div>
-        </div>
+        </Link>
         <button onClick={logout} className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-500/10 text-sm transition-colors">
           <LogOut size={15} /> {t('nav_logout')}
         </button>

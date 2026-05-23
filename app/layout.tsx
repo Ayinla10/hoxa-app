@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 import PWAInstall from '@/components/PWAInstall'
 
@@ -22,6 +23,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#18824a',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -31,13 +35,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         {/* Capture install prompt BEFORE React hydrates — prevents race condition */}
-        <script dangerouslySetInnerHTML={{ __html: `
+        <Script id="pwa-prompt-capture" strategy="beforeInteractive">{`
           window.__pwaPrompt = null;
           window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             window.__pwaPrompt = e;
           });
-        `}} />
+        `}</Script>
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         {children}

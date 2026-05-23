@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, RefreshCw, ArrowLeftRight, Bell } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Store, LifeBuoy } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 
 export default function BuyerBottomNav() {
@@ -10,10 +10,10 @@ export default function BuyerBottomNav() {
   const { t } = useI18n()
 
   const nav = [
-    { href: '/dashboard',               icon: LayoutDashboard, label: t('nav_dashboard') },
-    { href: '/dashboard/marketplace',   icon: RefreshCw,       label: t('nav_exchange') },
-    { href: '/dashboard/transactions',  icon: ArrowLeftRight,  label: t('nav_transactions') },
-    { href: '/dashboard/notifications', icon: Bell,            label: t('nav_notifications') },
+    { href: '/dashboard',              icon: LayoutDashboard, label: t('nav_dashboard') },
+    { href: '/dashboard/marketplace',  icon: Store,           label: t('nav_exchange') },
+    { href: '/dashboard/transactions', icon: ArrowLeftRight,  label: t('nav_transactions') },
+    { href: '/dashboard/support',      icon: LifeBuoy,        label: t('nav_support') },
   ]
 
   return (
@@ -22,7 +22,7 @@ export default function BuyerBottomNav() {
         {nav.map(({ href, icon: Icon, label }) => {
           const active = href === '/dashboard' ? pathname === href : pathname.startsWith(href)
           return (
-            <Link key={href} href={href} className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl flex-1 min-w-0">
+            <Link key={href} href={href} className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl flex-1 min-w-0">
               <Icon size={20} className={active ? 'text-[#177945]' : 'text-gray-400'} strokeWidth={active ? 2.5 : 1.8} />
               <span className={`text-[10px] font-medium truncate max-w-full px-0.5 ${active ? 'text-[#177945]' : 'text-gray-400'}`}>{label}</span>
             </Link>

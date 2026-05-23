@@ -1,6 +1,6 @@
 import { getAuthUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import NotificationsClient from '@/app/seller/notifications/NotificationsClient'
+import BuyerNotificationsClient from '@/components/buyer/BuyerNotificationsClient'
 
 export default async function BuyerNotificationsPage() {
   const { user, supabase } = await getAuthUser()
@@ -13,8 +13,8 @@ export default async function BuyerNotificationsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="max-w-2xl">
-      <NotificationsClient notifications={notifications ?? []} />
+    <div className="max-w-3xl">
+      <BuyerNotificationsClient notifications={notifications ?? []} />
     </div>
   )
 }

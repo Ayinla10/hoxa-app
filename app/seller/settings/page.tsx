@@ -13,8 +13,10 @@ export default async function SellerSettingsPage() {
   ])
   if (!user) redirect('/login')
 
-  const { data: notifications } = await supabase
-    .from('notifications').select('id').eq('user_id', user.id).eq('read', false)
+  const [{ data: notifications }, { data: seller }] = await Promise.all([
+    supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
+    supabase.from('sellers').select('auto_accept_enabled, auto_accept_rules, weekly_hours, timezone').eq('user_id', user.id).single(),
+  ])
 
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
 
@@ -26,7 +28,12 @@ export default async function SellerSettingsPage() {
         notifCount={notifications?.length ?? 0}
       />
       <main className="px-4 lg:px-8 py-5 w-full">
-        <SellerSettingsClient />
+        <SellerSettingsClient
+          autoAcceptEnabled={seller?.auto_accept_enabled ?? false}
+          autoAcceptMaxAmount={(seller?.auto_accept_rules as any)?.max_amount ?? null}
+          weeklyHours={(seller?.weekly_hours as any) ?? null}
+          timezone={seller?.timezone ?? 'Africa/Accra'}
+        />
       </main>
     </>
   )

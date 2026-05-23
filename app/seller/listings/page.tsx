@@ -1,19 +1,21 @@
 import { getSellerOffers, getSellerRecord } from '@/actions/listings'
 import SellerTopbar from '@/components/seller/SellerTopbar'
 import SellerListingsClient from './client'
-import { getAuthUser, getProfile } from '@/lib/supabase/server'
+import { getAuthUser, getProfile, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { FileText } from 'lucide-react'
 import { t, type Lang } from '@/lib/i18n'
 
 export default async function SellerListingsPage() {
-  const [{ user }, profile, cookieStore, seller, offers] = await Promise.all([
+  const service = createServiceClient()
+  const [{ user }, profile, cookieStore, seller, offers, corridorsResult] = await Promise.all([
     getAuthUser(),
     getProfile(),
     cookies(),
     getSellerRecord(),
     getSellerOffers(),
+    service.from('corridors').select('send_currency,receive_currency').eq('is_active', true).order('send_currency'),
   ])
   if (!user) redirect('/login')
 
@@ -37,7 +39,7 @@ export default async function SellerListingsPage() {
   return (
     <>
       <SellerTopbar title={t(lang, 'nav_listings')} sellerName={profile?.full_name ?? ''} />
-      <SellerListingsClient offers={offers} />
+      <SellerListingsClient offers={offers} corridors={corridorsResult.data ?? []} />
     </>
   )
 }

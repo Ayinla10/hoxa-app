@@ -12,15 +12,18 @@ import { ArrowRight, Package, Bell, ArrowLeftRight } from 'lucide-react'
 import { t, type Lang } from '@/lib/i18n'
 
 const TX_STATUS_MAP: Record<string, 'completed' | 'pending' | 'active' | 'rejected' | 'disputed'> = {
-  completed: 'completed',
-  seller_rejected: 'rejected',
-  seller_timeout: 'rejected',
-  cancelled: 'rejected',
-  disputed: 'disputed',
-  pending_seller: 'pending',
-  seller_accepted: 'active',
-  payment_submitted: 'pending',
-  payment_verified: 'active',
+  fully_completed:              'completed',
+  seller_rejected:              'rejected',
+  seller_timeout:               'rejected',
+  cancelled:                    'rejected',
+  expired:                      'rejected',
+  disputed:                     'disputed',
+  pending_acceptance:           'pending',
+  awaiting_payment:             'pending',
+  pending_ops_confirmation:     'active',
+  fulfillment_in_progress:      'active',
+  pending_receipt_confirmation: 'active',
+  pending_settlement:           'active',
 }
 
 function timeAgo(date: string) {
@@ -90,7 +93,7 @@ export default async function SellerDashboardPage() {
   const totalLiquidity = activeOffers.reduce((sum: number, o: any) => sum + (o.available_liquidity ?? 0), 0)
 
   const activeTxns = (allTxns ?? []).filter((t: any) =>
-    ['seller_accepted', 'payment_submitted', 'payment_verified'].includes(t.status)
+    ['pending_ops_confirmation', 'fulfillment_in_progress', 'pending_receipt_confirmation', 'pending_settlement'].includes(t.status)
   )
   const pendingSettlement = activeTxns.reduce((sum: number, t: any) => sum + (t.to_amount ?? 0), 0)
 

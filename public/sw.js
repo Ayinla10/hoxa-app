@@ -1,4 +1,4 @@
-// HOXA Service Worker — required for PWA install prompt
+// HOXA Service Worker — PWA + Push Notifications
 const CACHE_NAME = 'hoxa-v1';
 
 // Assets to pre-cache on install
@@ -26,7 +26,46 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first strategy (online-first app)
+// ── Push Notifications ──────────────────────────────
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  const data = event.data.json();
+
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'HOXA', {
+      body: data.message ?? '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { url: data.url ?? '/' },
+      tag: data.tag ?? 'hoxa',
+      renotify: true,
+      requireInteraction: data.type === 'error' || data.type === 'warning',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If app is already open, focus it and navigate
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          client.navigate?.(url);
+          return;
+        }
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
+// ── Fetch: network-first strategy (online-first app) ──
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;

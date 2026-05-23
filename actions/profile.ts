@@ -38,6 +38,8 @@ export async function applyAsSeller(data: {
   payment_methods: string[]
   currencies: string[]
   daily_limit: number
+  kyc_id_path?: string
+  kyc_selfie_path?: string
 }) {
   const { user, supabase } = await getAuthUser()
   if (!user) return { error: 'Unauthorized' }
@@ -47,13 +49,20 @@ export async function applyAsSeller(data: {
   if (existing) {
     if (existing.status === 'pending') return { error: 'Your application is already under review.' }
     if (existing.status === 'approved') return { error: 'You are already an approved seller.' }
+    // suspended: block re-application
+    if (existing.status === 'suspended') return { error: 'Your account has been suspended. Please contact support.' }
   }
 
-  const { error } = await supabase.from('sellers').insert({
+  const { kyc_id_path, kyc_selfie_path, ...sellerData } = data
+
+  // Use upsert so rejected sellers can re-apply without hitting a unique constraint
+  const { error } = await supabase.from('sellers').upsert({
     user_id: user.id,
-    ...data,
+    ...sellerData,
     status: 'pending',
-  })
+    kyc_id_path: kyc_id_path ?? null,
+    kyc_selfie_path: kyc_selfie_path ?? null,
+  }, { onConflict: 'user_id' })
 
   if (error) return { error: error.message }
 
@@ -107,5 +116,19 @@ export async function rejectSellerApplication(sellerId: string, userId: string) 
   await createNotification(userId, 'Application Rejected', 'Your seller application was not approved at this time. Contact support for more information.', 'error')
 
   revalidatePath('/admin/sellers')
+  return { success: true }
+}
+
+export async function saveNotificationPreferences(prefs: { push: boolean; email: boolean }) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ notification_preferences: prefs })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/settings')
   return { success: true }
 }

@@ -80,12 +80,21 @@ export async function acceptTransaction(transactionId: string) {
   if (txn.sellers.user_id !== user.id) return { error: 'Unauthorized' }
   if (txn.status !== 'pending_seller') return { error: 'Transaction is no longer pending' }
 
+  // V5.1: acceptance moves transaction to awaiting_payment (buyer can now pay)
   const { error } = await supabase
     .from('transactions')
-    .update({ status: 'seller_accepted' })
+    .update({ status: 'awaiting_payment' })
     .eq('id', transactionId)
 
   if (error) return { error: 'Failed to accept transaction' }
+
+  // Notify buyer that seller accepted and they can now pay
+  await createNotification(
+    txn.buyer_id,
+    'Exchange Accepted — Pay Now',
+    `Your exchange request has been accepted. Please complete your payment to proceed.`,
+    'info'
+  )
 
   revalidatePath('/seller/requests')
   revalidatePath('/seller/dashboard')
@@ -306,7 +315,7 @@ export async function getSellerPendingRequests() {
     .from('transactions')
     .select(`*, profiles!buyer_id(full_name)`)
     .eq('seller_id', seller.id)
-    .eq('status', 'pending_seller')
+    .in('status', ['pending_acceptance', 'pending_seller'])
     .order('created_at', { ascending: false })
 
   return data ?? []

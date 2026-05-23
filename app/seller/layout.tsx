@@ -9,6 +9,8 @@ import SellerShell from '@/components/seller/SellerShell'
 import BottomNav from '@/components/seller/BottomNav'
 import RealtimeSubscriber from '@/components/seller/RealtimeSubscriber'
 import SessionGuard from '@/components/SessionGuard'
+import RealtimeNotificationProvider from '@/components/RealtimeNotificationProvider'
+import PushNotificationSetup from '@/components/PushNotificationSetup'
 import { getSettings } from '@/actions/settings'
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
@@ -42,7 +44,7 @@ export default async function SellerLayout({ children }: { children: React.React
   return (
     <I18nProvider lang={lang}>
       <SidebarProvider>
-        <div className="min-h-screen bg-[#F7F9F8]">
+        <div className="min-h-screen bg-[#F7F9F8] w-full max-w-full overflow-x-hidden">
           <SellerSidebar
             sellerName={profile?.full_name ?? 'Seller'}
             score={score}
@@ -50,6 +52,8 @@ export default async function SellerLayout({ children }: { children: React.React
           />
           <RealtimeSubscriber table="transactions" filter={`seller_id=eq.${seller.id}`} />
           <RealtimeSubscriber table="notifications" filter={`user_id=eq.${user.id}`} />
+          <RealtimeNotificationProvider userId={user.id} />
+          <PushNotificationSetup userId={user.id} />
           <SellerShell>
             {children}
           </SellerShell>

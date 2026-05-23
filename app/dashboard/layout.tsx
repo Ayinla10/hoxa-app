@@ -6,6 +6,8 @@ import BuyerSidebar from '@/components/buyer/BuyerSidebar'
 import BuyerTopbar from '@/components/buyer/BuyerTopbar'
 import BuyerBottomNav from '@/components/buyer/BuyerBottomNav'
 import SessionGuard from '@/components/SessionGuard'
+import RealtimeNotificationProvider from '@/components/RealtimeNotificationProvider'
+import PushNotificationSetup from '@/components/PushNotificationSetup'
 import { getSettings } from '@/actions/settings'
 import { cookies } from 'next/headers'
 
@@ -44,16 +46,18 @@ export default async function BuyerLayout({ children }: { children: React.ReactN
 
   return (
     <I18nProvider lang={lang}>
-      <div className="min-h-screen bg-[#F7F9F8]">
+      <div className="min-h-screen bg-[#F7F9F8] w-full max-w-full overflow-x-hidden">
         <BuyerSidebar fullName={fullName} notifCount={notifCount} />
-        <div className="lg:pl-64">
-          <BuyerTopbar fullName={fullName} notifCount={notifCount} isSeller={isSeller} />
-          <main className="px-4 lg:px-8 py-6 pb-28 lg:pb-10 max-w-[1400px] mx-auto space-y-6">
+        <div className="lg:pl-64 w-full max-w-full">
+          <BuyerTopbar fullName={fullName} notifCount={notifCount} isSeller={isSeller} country={profile?.country ?? ''} />
+          <main className="px-4 lg:px-8 py-6 pb-28 lg:pb-10 max-w-[1400px] mx-auto space-y-6 w-full overflow-hidden box-border">
             {children}
           </main>
         </div>
         <BuyerBottomNav />
         <SessionGuard timeoutMinutes={sessionTimeout} />
+        <RealtimeNotificationProvider userId={user.id} />
+        <PushNotificationSetup userId={user.id} />
       </div>
     </I18nProvider>
   )

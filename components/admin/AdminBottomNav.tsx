@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ArrowLeftRight, AlertTriangle, Bell, Settings } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Banknote, AlertTriangle, Users } from 'lucide-react'
 
 const nav = [
   { href: '/admin/dashboard',    icon: LayoutDashboard, label: 'Overview' },
   { href: '/admin/transactions', icon: ArrowLeftRight,  label: 'Transactions' },
+  { href: '/admin/settlement',   icon: Banknote,        label: 'Settlement' },
   { href: '/admin/disputes',     icon: AlertTriangle,   label: 'Disputes' },
-  { href: '/admin/alerts',       icon: Bell,            label: 'Alerts' },
-  { href: '/admin/settings',     icon: Settings,        label: 'Settings' },
+  { href: '/admin/users',        icon: Users,           label: 'Users' },
 ]
 
 export default function AdminBottomNav() {

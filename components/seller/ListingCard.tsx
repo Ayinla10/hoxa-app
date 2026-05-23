@@ -6,6 +6,7 @@ import StatusBadge from './StatusBadge'
 import { toggleOfferAvailability } from '@/actions/listings'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n-context'
+import CurrencyFlag from '@/components/ui/CurrencyFlag'
 
 export interface Listing {
   id: string
@@ -45,7 +46,7 @@ export default function ListingCard({ listing, onEdit }: Props) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-gray-900 font-bold text-base">
-            {listing.fromCurrency} → {listing.toCurrency}
+            <span className="inline-flex items-center gap-1.5"><CurrencyFlag code={listing.fromCurrency} size={16} /> {listing.fromCurrency} → <CurrencyFlag code={listing.toCurrency} size={16} /> {listing.toCurrency}</span>
           </p>
           <p className="text-gray-400 text-xs">#{listing.id.slice(0, 8)}</p>
         </div>
