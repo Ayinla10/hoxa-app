@@ -6,7 +6,6 @@ import { submitRating } from '@/actions/ratings'
 
 interface Props {
   transactionId: string
-  rateeId: string
   role: 'buyer' | 'seller'
   rateeName: string
   existingScore?: number | null
@@ -20,7 +19,7 @@ const LABELS: Record<number, string> = {
   5: 'Excellent',
 }
 
-export default function RatingWidget({ transactionId, rateeId, role, rateeName, existingScore }: Props) {
+export default function RatingWidget({ transactionId, role, rateeName, existingScore }: Props) {
   const [hovered, setHovered] = useState(0)
   const [selected, setSelected] = useState(existingScore ?? 0)
   const [comment, setComment] = useState('')
@@ -32,7 +31,7 @@ export default function RatingWidget({ transactionId, rateeId, role, rateeName, 
     if (!selected) return
     setLoading(true)
     setError('')
-    const result = await submitRating({ transactionId, rateeId, role, score: selected, comment })
+    const result = await submitRating({ transactionId, role, score: selected, comment })
     if (result.error) {
       setError(result.error)
       setLoading(false)

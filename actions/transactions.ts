@@ -99,8 +99,7 @@ export async function acceptTransaction(transactionId: string) {
       .from('transactions')
       .select('created_at, accepted_at')
       .eq('seller_id', txn.seller_id)
-      .eq('status', 'awaiting_payment')
-      .not('accepted_at', 'is', null)
+      .not('accepted_at', 'is', null)  // any transaction they accepted, regardless of current status
       .order('accepted_at', { ascending: false })
       .limit(19) // + current one = 20
 

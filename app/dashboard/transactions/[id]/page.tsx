@@ -289,17 +289,14 @@ export default async function TransactionDetailPage({ params }: { params: Promis
           </div>
 
           {/* Rating */}
-          {sellerUserId && (
-            <div className="border-t border-gray-100 pt-4">
-              <RatingWidget
-                transactionId={tx.id}
-                rateeId={sellerUserId}
-                role="buyer"
-                rateeName={sellerName}
-                existingScore={existingRatingScore}
-              />
-            </div>
-          )}
+          <div className="border-t border-gray-100 pt-4">
+            <RatingWidget
+              transactionId={tx.id}
+              role="buyer"
+              rateeName={sellerName}
+              existingScore={existingRatingScore}
+            />
+          </div>
 
           {/* Post-transaction actions */}
           <div className="flex flex-wrap gap-3">

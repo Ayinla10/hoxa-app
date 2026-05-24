@@ -47,17 +47,50 @@ export async function initiateExchange(input: {
 
   // ── Recompute all financial values server-side ──
   const settings = await getSettings()
-  const feePercent = Number(settings.hoxa_buyer_fee_percent ?? settings.platform_fee_percent ?? 1)
-  const rateLockSeconds = Number(settings.rate_lock_duration_seconds ?? 600)
-  const acceptTimeoutSeconds = Number(settings.seller_response_timeout_seconds ?? 120)
+  const feePercent = Math.min(Math.max(Number(settings.hoxa_buyer_fee_percent ?? settings.platform_fee_percent ?? 1), 0), 10)
+  const rateLockSeconds = Math.min(Math.max(Number(settings.rate_lock_duration_seconds ?? 600), 60), 3600)
+  const acceptTimeoutSeconds = Math.min(Math.max(Number(settings.seller_response_timeout_seconds ?? 120), 15), 3600)
+
+  // ── Shared financials (used by both normal and queue paths) ──
+  const now = new Date()
+  const feeAmount = Math.round(sendSubtotal * (feePercent / 100) * 100) / 100
+  const totalPay = sendSubtotal + feeAmount
+  const receiveAmount = Math.round(sendSubtotal * offer.rate * 100) / 100
+  const sellerSettlementAmount = Math.round(sendSubtotal * 100) / 100
+  const rateExpiresAt = new Date(now.getTime() + rateLockSeconds * 1000)
+
+  const sharedTxFields = {
+    buyer_id: user.id,
+    seller_id: offer.seller_id,
+    offer_id: input.offer_id,
+    send_amount: totalPay,
+    send_currency: offer.from_currency,
+    receive_amount: receiveAmount,
+    receive_currency: offer.to_currency,
+    exchange_rate: offer.rate,
+    hoxa_fee_amount: feeAmount,
+    seller_settlement_amount: sellerSettlementAmount,
+    buyer_send_account: input.buyer_send_account.slice(0, 64),
+    buyer_send_provider: input.buyer_send_provider.slice(0, 64),
+    buyer_receive_account: input.buyer_receive_account.slice(0, 64),
+    buyer_receive_provider: input.buyer_receive_provider.slice(0, 64),
+    buyer_destination_country: input.buyer_destination_country.slice(0, 64),
+    rate_locked_at: now.toISOString(),
+    rate_expires_at: rateExpiresAt.toISOString(),
+    from_currency: offer.from_currency,
+    to_currency: offer.to_currency,
+    from_amount: totalPay,
+    to_amount: receiveAmount,
+    rate: offer.rate,
+  }
 
   // ── Off-hours / queue mode check ──
   const platformStatus = String(settings.platform_status ?? 'open').replace(/"/g, '')
-  const openHour = Number(settings.platform_open_hour ?? 7)
-  const closeHour = Number(settings.platform_close_hour ?? 22)
+  const openHour = Math.min(Math.max(Number(settings.platform_open_hour ?? 7), 0), 23)
+  const closeHour = Math.min(Math.max(Number(settings.platform_close_hour ?? 22), 0), 23)
   const queueModeEnabled = String(settings.queue_mode_enabled ?? 'true') === 'true'
-  const currentHour = new Date().getUTCHours() // platform timezone is Africa/Accra = UTC+0
-  const withinHours = currentHour >= openHour && currentHour < closeHour
+  const currentHour = new Date().getUTCHours() // Africa/Accra = UTC+0 year-round
+  const withinHours = !isNaN(openHour) && !isNaN(closeHour) && currentHour >= openHour && currentHour < closeHour
   const platformOpen = platformStatus === 'open' && withinHours
 
   if (!platformOpen) {
@@ -66,32 +99,20 @@ export async function initiateExchange(input: {
         error: `HOXA is currently closed. We operate ${openHour}:00–${closeHour}:00 GMT. Please try again during operating hours.`
       }
     }
-    // Queue mode: create transaction as queued, skip auto-accept engine
-    const { data: queuedTxn, error: queueErr } = await service.from('transactions').insert({
-      buyer_id: user.id,
-      seller_id: offer.seller_id,
-      offer_id: input.offer_id,
-      send_amount: Math.round((input.send_amount + Math.round(input.send_amount * (feePercent / 100) * 100) / 100) * 100) / 100,
-      send_currency: offer.from_currency,
-      receive_amount: Math.round(input.send_amount * offer.rate * 100) / 100,
-      receive_currency: offer.to_currency,
-      exchange_rate: offer.rate,
-      hoxa_fee_amount: Math.round(input.send_amount * (feePercent / 100) * 100) / 100,
-      seller_settlement_amount: input.send_amount,
-      buyer_send_account: input.buyer_send_account,
-      buyer_send_provider: input.buyer_send_provider,
-      buyer_receive_account: input.buyer_receive_account,
-      buyer_receive_provider: input.buyer_receive_provider,
-      buyer_destination_country: input.buyer_destination_country,
-      rate_locked_at: now.toISOString(),
-      rate_expires_at: new Date(now.getTime() + rateLockSeconds * 1000).toISOString(),
-      status: 'queued',
-      from_currency: offer.from_currency,
-      to_currency: offer.to_currency,
-      from_amount: Math.round((input.send_amount + Math.round(input.send_amount * (feePercent / 100) * 100) / 100) * 100) / 100,
-      to_amount: Math.round(input.send_amount * offer.rate * 100) / 100,
-      rate: offer.rate,
-    }).select().single()
+
+    // Cancel any existing pending/queued transactions for this buyer+offer before creating new one
+    await service
+      .from('transactions')
+      .update({ status: 'cancelled' })
+      .eq('buyer_id', user.id)
+      .eq('offer_id', input.offer_id)
+      .in('status', ['pending_acceptance', 'awaiting_payment', 'queued'])
+
+    const { data: queuedTxn, error: queueErr } = await service
+      .from('transactions')
+      .insert({ ...sharedTxFields, status: 'queued' })
+      .select()
+      .single()
 
     if (queueErr) {
       console.error('[initiateExchange] Queue insert error:', queueErr.message)
@@ -108,57 +129,24 @@ export async function initiateExchange(input: {
     return { success: true, transactionId: queuedTxn.id, queued: true }
   }
 
-  const feeAmount = Math.round(sendSubtotal * (feePercent / 100) * 100) / 100
-  const totalPay = sendSubtotal + feeAmount
-  const receiveAmount = Math.round(sendSubtotal * offer.rate * 100) / 100
-  const sellerSettlementAmount = Math.round(sendSubtotal * 100) / 100 // seller gets the subtotal (fee kept by Hoxa)
-
-  const now = new Date()
-  const rateExpiresAt = new Date(now.getTime() + rateLockSeconds * 1000)
+  // Cancel any existing pending transactions for this buyer+offer BEFORE inserting
+  await service
+    .from('transactions')
+    .update({ status: 'cancelled' })
+    .eq('buyer_id', user.id)
+    .eq('offer_id', input.offer_id)
+    .in('status', ['pending_acceptance', 'awaiting_payment', 'queued'])
 
   const { data: txn, error: txnErr } = await service.from('transactions').insert({
-    buyer_id: user.id,
-    seller_id: offer.seller_id,
-    offer_id: input.offer_id,
-    // V5.1 fields — all computed server-side
-    send_amount: totalPay,
-    send_currency: offer.from_currency,
-    receive_amount: receiveAmount,
-    receive_currency: offer.to_currency,
-    exchange_rate: offer.rate,
-    hoxa_fee_amount: feeAmount,
-    seller_settlement_amount: sellerSettlementAmount,
-    buyer_send_account: input.buyer_send_account,
-    buyer_send_provider: input.buyer_send_provider,
-    buyer_receive_account: input.buyer_receive_account,
-    buyer_receive_provider: input.buyer_receive_provider,
-    buyer_destination_country: input.buyer_destination_country,
-    rate_locked_at: now.toISOString(),
-    rate_expires_at: rateExpiresAt.toISOString(),
+    ...sharedTxFields,
     seller_response_deadline: new Date(now.getTime() + acceptTimeoutSeconds * 1000).toISOString(),
     status: 'pending_acceptance',
-    // Legacy fields for backward compat
-    from_currency: offer.from_currency,
-    to_currency: offer.to_currency,
-    from_amount: totalPay,
-    to_amount: receiveAmount,
-    rate: offer.rate,
   }).select().single()
 
   if (txnErr) {
     console.error('[initiateExchange] DB error:', txnErr.message, txnErr.details)
     return { error: 'Something went wrong. Please try again or contact support.' }
   }
-
-  // Prevent duplicate pending transactions: if the buyer already has a pending tx
-  // on this offer, cancel the old one before creating a new one
-  await service
-    .from('transactions')
-    .update({ status: 'cancelled' })
-    .eq('buyer_id', user.id)
-    .eq('offer_id', input.offer_id)
-    .in('status', ['pending_acceptance', 'awaiting_payment'])
-    .neq('id', txn.id)
 
   // Auto-accept engine: check seller's rules
   const { data: seller } = await supabase
@@ -355,12 +343,16 @@ export async function sweepExpiredPaymentWindows() {
     if (!expired?.length) return
 
     for (const tx of expired) {
-      await service.from('transactions').update({
+      const { error: updateErr } = await service.from('transactions').update({
         status: 'awaiting_payment',
         ive_paid_tapped_at: null,
         payment_window_expires_at: null,
-        ops_reject_reason: 'payment_window_expired',
       }).eq('id', tx.id)
+
+      if (updateErr) {
+        console.error('[sweepExpiredPaymentWindows] failed to reset tx', tx.id, updateErr.message)
+        continue
+      }
 
       await createNotification(
         tx.buyer_id,
@@ -369,8 +361,8 @@ export async function sweepExpiredPaymentWindows() {
         'warning'
       )
     }
-  } catch {
-    // Non-fatal — never block page load
+  } catch (err) {
+    console.error('[sweepExpiredPaymentWindows] unexpected error:', err)
   }
 }
 
@@ -422,6 +414,7 @@ export async function opsConfirmPayment(transactionId: string) {
     )
   }
 
+  await logAdminAction(user.id, 'OPS_CONFIRM_PAYMENT', 'transaction', transactionId, { ref: txn.hoxa_transaction_id })
   revalidatePath('/admin/transactions')
   revalidatePath(`/dashboard/transactions/${transactionId}`)
   return { success: true }
@@ -477,6 +470,7 @@ export async function opsRejectPayment(transactionId: string, reason: string) {
     'warning'
   )
 
+  await logAdminAction(user.id, 'OPS_REJECT_PAYMENT', 'transaction', transactionId, { reason, ref: txn.hoxa_transaction_id })
   revalidatePath('/admin/transactions')
   revalidatePath(`/dashboard/transactions/${transactionId}`)
   return { success: true }
@@ -746,6 +740,7 @@ export async function opsReleaseSettlement(transactionId: string) {
     }).eq('id', txn.seller_id)
   }
 
+  await logAdminAction(user.id, 'OPS_RELEASE_SETTLEMENT', 'transaction', transactionId, { ref: txn.hoxa_transaction_id, amount: txn.seller_settlement_amount, currency: txn.send_currency })
   revalidatePath('/admin/transactions')
   return { success: true }
 }
@@ -822,6 +817,7 @@ export async function opsFavourBuyer(transactionId: string) {
     }
   }
 
+  await logAdminAction(user.id, 'OPS_FAVOUR_BUYER', 'transaction', transactionId, { ref: txn.hoxa_transaction_id })
   revalidatePath('/admin/disputes')
   revalidatePath('/admin/transactions')
   revalidatePath(`/admin/transactions/${transactionId}`)
@@ -853,13 +849,24 @@ export async function handleSellerTimeout(transactionId: string) {
 
   const service = createServiceClient()
 
+  // Atomic guard: only proceed if the row is STILL pending_acceptance at write time.
+  // This prevents concurrent calls (multiple tabs, rapid polling) from double-processing.
+  const { data: locked, error: lockErr } = await service
+    .from('transactions')
+    .update({ status: 'seller_timeout' })
+    .eq('id', transactionId)
+    .eq('status', 'pending_acceptance') // only matches if not already handled
+    .select('id')
+    .single()
+
+  if (lockErr || !locked) return { already_handled: true }
+
   // Mark original seller as timed out, then look for admin fallback seller
   const settings = await getSettings()
   const fallbackSellerId = settings.admin_fallback_seller_id as string | undefined
 
   if (!fallbackSellerId) {
-    // No fallback configured — just mark as seller_timeout and cancel
-    await service.from('transactions').update({ status: 'seller_timeout' }).eq('id', transactionId)
+    // Already marked seller_timeout by atomic guard above — just notify buyer
     await createNotification(
       txn.buyer_id,
       'Exchanger did not respond',
@@ -878,7 +885,7 @@ export async function handleSellerTimeout(transactionId: string) {
     .single()
 
   if (!fallbackSeller) {
-    await service.from('transactions').update({ status: 'seller_timeout' }).eq('id', transactionId)
+    // Already seller_timeout from atomic guard — notify and exit
     revalidatePath(`/dashboard/transactions/${transactionId}`)
     return { timedOut: true }
   }

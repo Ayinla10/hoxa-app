@@ -6,8 +6,7 @@ import { revalidatePath } from 'next/cache'
 
 export async function submitRating(input: {
   transactionId: string
-  rateeId: string
-  role: 'buyer' | 'seller'
+  role: 'buyer' | 'seller'  // role of the RATER (not the ratee)
   score: number
   comment?: string
 }) {
@@ -18,7 +17,7 @@ export async function submitRating(input: {
 
   const service = createServiceClient()
 
-  // Verify transaction exists and involves this user
+  // Fetch the transaction and derive rateeId server-side — never trust client input
   const { data: tx } = await service
     .from('transactions')
     .select('id, buyer_id, seller_id, status, sellers(user_id)')
@@ -32,18 +31,24 @@ export async function submitRating(input: {
 
   const sellerUserId = (tx.sellers as any)?.user_id
 
-  // Ensure rater is involved in the transaction
-  const isBuyer = tx.buyer_id === user.id
-  const isSeller = sellerUserId === user.id
-  if (!isBuyer && !isSeller) return { error: 'Unauthorized' }
+  // Verify rater is a participant and derive the correct ratee
+  let rateeId: string
+  if (input.role === 'buyer') {
+    if (tx.buyer_id !== user.id) return { error: 'Unauthorized' }
+    if (!sellerUserId) return { error: 'Seller account not found' }
+    rateeId = sellerUserId
+  } else {
+    if (sellerUserId !== user.id) return { error: 'Unauthorized' }
+    rateeId = tx.buyer_id
+  }
 
   const { error } = await service.from('ratings').insert({
     transaction_id: input.transactionId,
     rater_id: user.id,
-    ratee_id: input.rateeId,
+    ratee_id: rateeId,
     role: input.role,
     score: input.score,
-    comment: input.comment?.trim() || null,
+    comment: input.comment?.trim().slice(0, 500) || null,
   })
 
   if (error) {
@@ -67,7 +72,7 @@ export async function getMyRatingForTransaction(transactionId: string): Promise<
     .select('score')
     .eq('transaction_id', transactionId)
     .eq('rater_id', user.id)
-    .single()
+    .maybeSingle()
 
   return data?.score ?? null
 }

@@ -28,6 +28,8 @@ const DISPUTE_REASONS = [
 ]
 
 export default function ReceiptConfirmationOverlay({ transaction }: Props) {
+  const [confirmError, setConfirmError] = useState('')
+  const [disputeError, setDisputeError] = useState('')
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showDispute, setShowDispute] = useState(false)
@@ -78,9 +80,11 @@ export default function ReceiptConfirmationOverlay({ transaction }: Props) {
   }
 
   async function handleConfirmReceipt() {
+    setConfirmError('')
     setLoading(true)
     const result = await buyerConfirmReceipt(transaction.id)
     if (result.error) {
+      setConfirmError(result.error)
       setLoading(false)
       return
     }
@@ -90,12 +94,14 @@ export default function ReceiptConfirmationOverlay({ transaction }: Props) {
 
   async function handleDispute() {
     if (!disputeReason) return
+    setDisputeError('')
     setLoading(true)
     const fullReason = disputeNotes
       ? `${disputeReason}: ${disputeNotes}`
       : disputeReason
     const result = await buyerDisputeReceipt(transaction.id, fullReason)
     if (result.error) {
+      setDisputeError(result.error)
       setLoading(false)
       return
     }
@@ -136,6 +142,14 @@ export default function ReceiptConfirmationOverlay({ transaction }: Props) {
               <p className="text-xs text-gray-500 mb-5">
                 Confirming receipt releases the exchanger and completes your exchange.
               </p>
+
+              {/* Confirm error */}
+              {confirmError && (
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 border border-red-100 rounded-xl">
+                  <AlertTriangle size={13} className="text-red-500 flex-shrink-0" />
+                  <p className="text-red-600 text-xs font-medium">{confirmError}</p>
+                </div>
+              )}
 
               {/* Action buttons */}
               <div className="grid grid-cols-2 gap-3">
@@ -231,6 +245,12 @@ export default function ReceiptConfirmationOverlay({ transaction }: Props) {
                   )}
                 </button>
               </div>
+              {disputeError && (
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 border border-red-100 rounded-xl mt-2">
+                  <AlertTriangle size={13} className="text-red-500 flex-shrink-0" />
+                  <p className="text-red-600 text-xs font-medium">{disputeError}</p>
+                </div>
+              )}
             </div>
           </>
         )}
