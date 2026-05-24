@@ -279,6 +279,45 @@ export async function markIvePaid(transactionId: string) {
 }
 
 /**
+ * Called when ops loads the payment review page.
+ * Finds any pending_ops_confirmation transactions whose payment window has expired
+ * and moves them back to awaiting_payment so the buyer can retry.
+ * Non-fatal — never blocks page load.
+ */
+export async function sweepExpiredPaymentWindows() {
+  try {
+    const service = createServiceClient()
+    const now = new Date().toISOString()
+
+    const { data: expired } = await service
+      .from('transactions')
+      .select('id, buyer_id, hoxa_transaction_id')
+      .eq('status', 'pending_ops_confirmation')
+      .lt('payment_window_expires_at', now)
+
+    if (!expired?.length) return
+
+    for (const tx of expired) {
+      await service.from('transactions').update({
+        status: 'awaiting_payment',
+        ive_paid_tapped_at: null,
+        payment_window_expires_at: null,
+        ops_reject_reason: 'payment_window_expired',
+      }).eq('id', tx.id)
+
+      await createNotification(
+        tx.buyer_id,
+        'Payment window expired',
+        `Your payment claim for ${tx.hoxa_transaction_id ?? tx.id.slice(0, 8)} was not confirmed in time. Please submit your payment again.`,
+        'warning'
+      )
+    }
+  } catch {
+    // Non-fatal — never block page load
+  }
+}
+
+/**
  * Step 4.9: Ops confirms payment (admin action)
  */
 export async function opsConfirmPayment(transactionId: string) {

@@ -250,6 +250,17 @@ export default function PaymentInstructionClient({ transaction, provider, collec
             </div>
           )}
 
+          {/* Exchange protection guarantee */}
+          <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-3">
+            <ShieldCheck size={15} className="text-[#177945] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-[#177945]">Your funds are protected</p>
+              <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">
+                HOXA holds your payment in escrow and only releases it to the exchanger after you confirm receipt. You will never lose money in a HOXA-protected exchange.
+              </p>
+            </div>
+          </div>
+
           {/* I've Paid CTA */}
           <button
             onClick={handleIvePaid}

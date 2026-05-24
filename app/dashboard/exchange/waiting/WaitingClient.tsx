@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Loader2, CheckCircle2, Clock, ArrowRight,
-  LifeBuoy, FileText, RefreshCw, XCircle, UserCheck
+  LifeBuoy, FileText, RefreshCw, XCircle, UserCheck, ShieldCheck
 } from 'lucide-react'
 import { handleSellerTimeout } from '@/actions/exchange'
 
@@ -169,6 +169,17 @@ export default function WaitingClient({ transaction }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Exchange protection guarantee */}
+          <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-3">
+            <ShieldCheck size={15} className="text-[#177945] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-[#177945]">Your payment is protected</p>
+              <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">
+                HOXA holds your funds in escrow. The exchanger only receives them after you confirm you've received your money. You're always covered.
+              </p>
+            </div>
           </div>
 
           {/* Typical wait time */}

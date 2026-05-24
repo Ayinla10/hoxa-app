@@ -1,14 +1,18 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { sweepExpiredPaymentWindows } from '@/actions/exchange'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import Link from 'next/link'
 import { CreditCard, ArrowRight, Clock, CheckCircle2 } from 'lucide-react'
 
 export default async function AdminPaymentReviewPage() {
+  // Non-blocking sweep: move expired payment windows back to awaiting_payment
+  void sweepExpiredPaymentWindows()
+
   const supabase = createServiceClient()
 
   const { data: transactions } = await supabase
     .from('transactions')
-    .select('id, send_amount, send_currency, receive_amount, receive_currency, from_amount, from_currency, to_amount, to_currency, exchange_rate, rate, status, created_at, hoxa_transaction_id, payment_window_expires_at, profiles!buyer_id(full_name, phone), sellers(profiles(full_name))')
+    .select('id, send_amount, send_currency, receive_amount, receive_currency, from_amount, from_currency, to_amount, to_currency, exchange_rate, rate, status, created_at, hoxa_transaction_id, payment_window_expires_at, buyer_send_account, profiles!buyer_id(full_name, phone), sellers(profiles(full_name))')
     .eq('status', 'pending_ops_confirmation')
     .order('created_at', { ascending: true }) // oldest first — most urgent
 
@@ -50,7 +54,7 @@ export default async function AdminPaymentReviewPage() {
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">
                   <tr>
-                    {['Ref', 'Buyer', 'Seller', 'Exchange', 'Rate', 'Window', 'Submitted', ''].map(h => (
+                    {['Ref', 'Buyer', 'Sender Account', 'Seller', 'Exchange', 'Rate', 'Window', 'Submitted', ''].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium text-xs">{h}</th>
                     ))}
                   </tr>
@@ -73,6 +77,9 @@ export default async function AdminPaymentReviewPage() {
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{(tx.profiles as any)?.full_name ?? '—'}</p>
                           <p className="text-gray-400 text-xs">{(tx.profiles as any)?.phone ?? ''}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-mono text-sm text-gray-800">{tx.buyer_send_account ?? '—'}</p>
                         </td>
                         <td className="px-4 py-3 text-gray-600">{(tx.sellers as any)?.profiles?.full_name ?? '—'}</td>
                         <td className="px-4 py-3">
@@ -127,6 +134,9 @@ export default async function AdminPaymentReviewPage() {
                       <p className="text-gray-400 text-xs mt-0.5 truncate">
                         {ref} · {(tx.profiles as any)?.full_name ?? '—'}
                       </p>
+                      {tx.buyer_send_account && (
+                        <p className="font-mono text-xs text-gray-600 mt-0.5 truncate">{tx.buyer_send_account}</p>
+                      )}
                       {minsLeft !== null && (
                         <p className={`text-xs mt-1 font-medium ${minsLeft < 10 ? 'text-red-600' : 'text-gray-400'}`}>
                           {minsLeft > 0 ? `Window: ${minsLeft}m left` : 'Window expired'}

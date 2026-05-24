@@ -296,6 +296,17 @@ export default function CheckoutClient({
             </div>
           )}
 
+          {/* Exchange protection guarantee */}
+          <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-3">
+            <ShieldCheck size={15} className="text-[#177945] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-[#177945]">HOXA Exchange Guarantee</p>
+              <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">
+                Your payment is held securely by HOXA and only released to the exchanger after you confirm receipt. If anything goes wrong, we'll refund you in full.
+              </p>
+            </div>
+          </div>
+
           {/* Confirm button */}
           <button
             onClick={handleConfirm}
