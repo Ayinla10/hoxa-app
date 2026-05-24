@@ -17,9 +17,14 @@ export interface PendingRequest {
 }
 
 export default function PendingRequestCard({ req }: { req: PendingRequest }) {
-  const [state, setState] = useState<'idle' | 'accepted' | 'rejected' | 'loading' | 'error'>('idle')
+  const [state, setState] = useState<'idle' | 'accepted' | 'rejected' | 'loading' | 'error' | 'expired'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const { t } = useI18n()
+
+  // Auto-expire when countdown hits 0
+  function handleExpired() {
+    if (state === 'idle') setState('expired')
+  }
 
   const received = (req.amount * req.rate).toLocaleString()
   const amountFmt = req.amount.toLocaleString()
@@ -33,6 +38,20 @@ export default function PendingRequestCard({ req }: { req: PendingRequest }) {
         <div>
           <p className="text-green-700 font-semibold text-sm">{t('request_accepted')}</p>
           <p className="text-green-600 text-xs">#{req.id.slice(0, 8)} — {t('transaction_active')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (state === 'expired') {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 flex items-center gap-3 opacity-60">
+        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+          <X size={16} className="text-gray-400" />
+        </div>
+        <div>
+          <p className="text-gray-500 font-semibold text-sm">Request expired</p>
+          <p className="text-gray-400 text-xs">#{req.id.slice(0, 8)} — Time window passed. This request was reassigned.</p>
         </div>
       </div>
     )
@@ -86,7 +105,7 @@ export default function PendingRequestCard({ req }: { req: PendingRequest }) {
         </div>
         <div className="text-right">
           <p className="text-xs text-gray-400 mb-0.5">{t('time_left')}</p>
-          <CountdownTimer seconds={req.secondsLeft} />
+          <CountdownTimer seconds={req.secondsLeft} onExpired={handleExpired} />
         </div>
       </div>
 

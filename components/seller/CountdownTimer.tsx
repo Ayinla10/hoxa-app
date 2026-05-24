@@ -3,17 +3,23 @@
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n-context'
 
-export default function CountdownTimer({ seconds }: { seconds: number }) {
+export default function CountdownTimer({ seconds, onExpired }: { seconds: number; onExpired?: () => void }) {
   const [remaining, setRemaining] = useState(seconds)
   const { t } = useI18n()
 
   useEffect(() => { setRemaining(seconds) }, [seconds])
 
   useEffect(() => {
-    if (remaining <= 0) return
-    const id = setInterval(() => setRemaining(r => r - 1), 1000)
+    if (remaining <= 0) {
+      onExpired?.()
+      return
+    }
+    const id = setInterval(() => setRemaining(r => {
+      if (r <= 1) { onExpired?.(); return 0 }
+      return r - 1
+    }), 1000)
     return () => clearInterval(id)
-  }, [remaining])
+  }, [remaining]) // eslint-disable-line
 
   const mins = Math.floor(remaining / 60)
   const secs = remaining % 60

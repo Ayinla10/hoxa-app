@@ -8,6 +8,7 @@ import {
   AlertTriangle, XCircle, Loader2,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
+import BackButton from '@/components/ui/BackButton'
 
 const TYPE_ICONS: Record<string, any> = {
   info: Info,
@@ -60,6 +61,7 @@ export default function NotificationsClient({ notifications }: Props) {
 
   return (
     <div className="space-y-5">
+      <BackButton href="/seller/dashboard" />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

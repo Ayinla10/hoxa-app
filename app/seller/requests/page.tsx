@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { Clock } from 'lucide-react'
 import { t, type Lang } from '@/lib/i18n'
+import BackButton from '@/components/ui/BackButton'
 
 export default async function SellerRequestsPage() {
   const [{ user }, profile, cookieStore, requests] = await Promise.all([
@@ -22,6 +23,7 @@ export default async function SellerRequestsPage() {
     <>
       <SellerTopbar title={t(lang, 'nav_requests')} sellerName={profile?.full_name ?? ''} notifCount={requests.length} />
       <div className="px-4 lg:px-8 py-5">
+        <BackButton href="/seller/dashboard" />
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="font-bold text-gray-900 text-lg">{t(lang, 'pending_requests')}</h2>

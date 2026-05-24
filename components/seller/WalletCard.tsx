@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { pauseAllOffers } from '@/actions/listings'
 
 interface Props {
+  sellerName?: string
   liquidity: number
   pendingSettlements: number
   dailyVolume: number
@@ -14,7 +15,7 @@ interface Props {
   onAddListing?: () => void
 }
 
-export default function WalletCard({ liquidity, pendingSettlements, dailyVolume, currency = 'GHS', onAddListing }: Props) {
+export default function WalletCard({ sellerName, liquidity, pendingSettlements, dailyVolume, currency = 'GHS', onAddListing }: Props) {
   const [hidden, setHidden] = useState(false)
   const [pausing, setPausing] = useState(false)
   const router = useRouter()
@@ -32,11 +33,15 @@ export default function WalletCard({ liquidity, pendingSettlements, dailyVolume,
     <div className="rounded-2xl p-6 bg-gradient-to-br from-[#177945] to-[#1a9152] shadow-xl shadow-[#177945]/20 text-white">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <p className="text-white/60 text-xs font-medium uppercase tracking-wider mb-1.5">{t('available_liquidity')}</p>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-bold tracking-tight">{currency} {fmt(liquidity)}</span>
-            <button onClick={() => setHidden(v => !v)} className="mb-1 text-white/50 hover:text-white transition-colors">
-              {hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+          <p className="text-white/60 text-xs font-medium uppercase tracking-wider mb-1.5">Seller Account</p>
+          <h2 className="text-2xl font-bold tracking-tight leading-tight truncate max-w-[200px]">
+            {sellerName ?? 'My Account'}
+          </h2>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <p className="text-white/60 text-xs">{t('available_liquidity')}:</p>
+            <span className="text-white text-xs font-semibold">{currency} {fmt(liquidity)}</span>
+            <button onClick={() => setHidden(v => !v)} className="text-white/50 hover:text-white transition-colors">
+              {hidden ? <EyeOff size={13} /> : <Eye size={13} />}
             </button>
           </div>
         </div>

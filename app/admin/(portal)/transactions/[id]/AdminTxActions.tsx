@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { opsConfirmPayment, opsRejectPayment, opsReleaseSettlement, opsFavourBuyer } from '@/actions/exchange'
+import { opsConfirmPayment, opsRejectPayment, opsReleaseSettlement, opsFavourBuyer, opsResolveDisputeSellerWins, opsUpdateDisputeNotes } from '@/actions/exchange'
 import { markRefundSent } from '@/actions/admin'
 import {
   CheckCircle2, XCircle, SendHorizonal, Loader2,
@@ -30,6 +30,8 @@ export default function AdminTxActions({ transaction: tx }: Props) {
   const [rejectReason, setRejectReason] = useState('not_received')
   const [refundNotes, setRefundNotes] = useState('')
   const [showRefundForm, setShowRefundForm] = useState(false)
+  const [disputeNotes, setDisputeNotes] = useState((tx as any).dispute_notes ?? '')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   async function act(key: string, fn: () => Promise<{ error?: string } | undefined | null>) {
     setLoading(key)
@@ -183,7 +185,7 @@ export default function AdminTxActions({ transaction: tx }: Props) {
             </div>
             <div className="px-3 py-2.5">
               <button
-                onClick={() => act('resolve_seller', () => opsReleaseSettlement(tx.id))}
+                onClick={() => act("resolve_seller", () => opsResolveDisputeSellerWins(tx.id))}
                 disabled={loading !== null}
                 className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#18824a] to-[#0f6a3d] text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
@@ -214,6 +216,30 @@ export default function AdminTxActions({ transaction: tx }: Props) {
           <p className="text-amber-600 text-[10px] bg-amber-50 px-3 py-2 rounded-xl border border-amber-100">
             ⚠️ If you favour the buyer, you must manually refund them via bank transfer. The system will notify them that a refund is on the way.
           </p>
+
+          {/* Dispute Notes */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-600">Admin Notes (internal)</p>
+              <p className="text-[10px] text-gray-400">Log your investigation steps here.</p>
+            </div>
+            <div className="px-3 py-2.5 space-y-2">
+              <textarea
+                value={disputeNotes}
+                onChange={e => setDisputeNotes(e.target.value)}
+                placeholder="e.g. Contacted buyer by phone, payment receipt verified, seller confirmed non-receipt..."
+                rows={3}
+                className="w-full text-xs border border-gray-200 rounded-lg p-2 resize-none focus:outline-none focus:border-[#18824a]"
+              />
+              <button
+                onClick={async () => { setSavingNotes(true); await opsUpdateDisputeNotes(tx.id, disputeNotes); setSavingNotes(false); setSuccess("Notes saved") }}
+                disabled={savingNotes}
+                className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium disabled:opacity-50"
+              >
+                {savingNotes ? "Saving..." : "Save Notes"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

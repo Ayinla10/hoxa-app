@@ -1,5 +1,6 @@
 'use client'
 
+import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -7,6 +8,7 @@ import {
   Loader2, CheckCircle2, Clock, ArrowRight,
   LifeBuoy, FileText, RefreshCw, XCircle, UserCheck
 } from 'lucide-react'
+import { handleSellerTimeout } from '@/actions/exchange'
 
 interface Props {
   transaction: any
@@ -30,6 +32,7 @@ function getStage(status: string): Stage {
 
 export default function WaitingClient({ transaction }: Props) {
   const router = useRouter()
+  const { t } = useI18n()
   const [status, setStatus] = useState(transaction.status)
 
   // Re-sync status when server re-renders with updated props (after router.refresh())
@@ -46,17 +49,23 @@ export default function WaitingClient({ transaction }: Props) {
 
   const stage = getStage(status)
 
-  // Poll for status changes every 15 seconds
+  // Poll for status changes every 8 seconds; trigger timeout check when deadline passes
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        // Use router.refresh() to get updated data from server
+        // If we're still waiting for acceptance and deadline has passed, trigger reassignment
+        if (status === 'pending_acceptance' || status === 'pending_seller') {
+          const deadline = transaction.seller_response_deadline
+          if (deadline && new Date(deadline) < new Date()) {
+            await handleSellerTimeout(transaction.id)
+          }
+        }
         router.refresh()
       } catch {}
-    }, 15000)
+    }, 8000)
 
     return () => clearInterval(interval)
-  }, [router])
+  }, [router, status, transaction.id, transaction.seller_response_deadline])
 
   // Redirect when status moves forward or hits terminal
   useEffect(() => {
@@ -74,25 +83,22 @@ export default function WaitingClient({ transaction }: Props) {
     {
       key: 'acceptance',
       label: 'Exchanger accepts your request',
+      sub: 'Usually within a few minutes',
       active: stage === 'waiting_acceptance',
-      done: !['waiting_acceptance'].includes(stage),
+      done: stage !== 'waiting_acceptance',
     },
     {
-      key: 'confirming',
-      label: 'HOXA verifies your payment',
-      active: stage === 'confirming',
-      done: ['confirmed', 'sending', 'confirm_receipt'].includes(stage),
-    },
-    {
-      key: 'sending',
-      label: `Exchanger sends your ${receiveCurrency}`,
-      active: stage === 'confirmed' || stage === 'sending',
-      done: stage === 'confirm_receipt',
+      key: 'payment',
+      label: 'You pay & HOXA verifies',
+      sub: 'Send the exact amount via your chosen method — our team confirms receipt',
+      active: ['confirming', 'confirmed'].includes(stage),
+      done: ['sending', 'confirm_receipt'].includes(stage),
     },
     {
       key: 'receipt',
-      label: 'You confirm receipt',
-      active: stage === 'confirm_receipt',
+      label: `Funds sent & you confirm receipt`,
+      sub: `Exchanger sends your ${receiveCurrency} — you confirm you got it to complete the exchange`,
+      active: stage === 'sending' || stage === 'confirm_receipt',
       done: false,
     },
   ]
@@ -130,14 +136,14 @@ export default function WaitingClient({ transaction }: Props) {
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">What happens next</p>
 
             {steps.map((step, i) => (
-              <div key={step.key} className="flex items-center gap-3">
+              <div key={step.key} className="flex items-start gap-3">
                 {/* Step indicator */}
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
                   step.done
                     ? 'bg-green-500 text-white'
                     : step.active
                     ? 'bg-[#177945] text-white animate-pulse'
-                    : 'bg-gray-200 text-gray-400'
+                    : 'bg-gray-100 text-gray-400'
                 }`}>
                   {step.done ? (
                     <CheckCircle2 size={14} />
@@ -148,16 +154,19 @@ export default function WaitingClient({ transaction }: Props) {
                   )}
                 </div>
 
-                {/* Step label */}
-                <span className={`text-sm ${
-                  step.done
-                    ? 'text-green-600 font-medium line-through'
-                    : step.active
-                    ? 'text-gray-900 font-semibold'
-                    : 'text-gray-400'
-                }`}>
-                  {step.done && '✓ '}{step.label}
-                </span>
+                {/* Step label + sub */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium leading-tight ${
+                    step.done ? 'text-green-600 line-through' :
+                    step.active ? 'text-gray-900 font-semibold' :
+                    'text-gray-400'
+                  }`}>
+                    {step.label}
+                  </p>
+                  {(step.active || (!step.done && i === steps.findIndex(s => !s.done))) && (
+                    <p className="text-xs text-gray-400 mt-0.5">{step.sub}</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

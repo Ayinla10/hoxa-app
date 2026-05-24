@@ -65,13 +65,12 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 lg:px-6 py-3.5 shadow-sm w-full max-w-full overflow-visible">
         <div className="flex items-center justify-between gap-2 sm:gap-4 w-full max-w-full">
 
-          {/* Desktop left — logo + corridor */}
+          {/* Desktop left — title */}
           <div className="hidden lg:flex items-center gap-3">
             <p className="text-gray-900 font-bold text-base">{title ?? 'Dashboard'}</p>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full font-medium">{corridor}</span>
           </div>
 
-          {/* Mobile left — hamburger + logo + corridor */}
+          {/* Mobile left — hamburger + logo */}
           <div className="flex lg:hidden items-center gap-2">
             <button
               onClick={() => setDrawerOpen(true)}
@@ -81,7 +80,6 @@ export default function BuyerTopbar({ fullName, notifCount, title, isSeller = fa
             </button>
             <div className="flex items-center gap-2">
               <img src="/hoxa-logo.png" alt="HOXA" className="h-6 flex-shrink-0" />
-              <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium">{corridor}</span>
               {isSeller && (
                 <Link
                   href="/seller/dashboard"

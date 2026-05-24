@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { savePushSubscription, removePushSubscription } from '@/actions/push'
 import { saveNotificationPreferences } from '@/actions/profile'
+import BackButton from '@/components/ui/BackButton'
 
 interface Props {
   email: string
@@ -18,6 +19,7 @@ interface Props {
 export default function SettingsClient({ email, notifPrefs }: Props) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <BackButton href="/dashboard" />
       <div>
         <h1 className="text-xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-400 text-sm mt-0.5">Manage your account settings and preferences</p>

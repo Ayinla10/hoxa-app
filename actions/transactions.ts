@@ -78,7 +78,7 @@ export async function acceptTransaction(transactionId: string) {
 
   if (!txn) return { error: 'Transaction not found' }
   if (txn.sellers.user_id !== user.id) return { error: 'Unauthorized' }
-  if (txn.status !== 'pending_seller') return { error: 'Transaction is no longer pending' }
+  if (!['pending_seller', 'pending_acceptance'].includes(txn.status)) return { error: 'Transaction is no longer pending' }
 
   // V5.1: acceptance moves transaction to awaiting_payment (buyer can now pay)
   const { error } = await supabase
@@ -254,7 +254,7 @@ export async function getBuyerTransactions() {
 
   const { data } = await supabase
     .from('transactions')
-    .select(`*, sellers(profiles(full_name))`)
+    .select(`*, sellers(profiles(full_name)), corridors(send_country, receive_country)`)
     .eq('buyer_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -316,6 +316,7 @@ export async function getSellerPendingRequests() {
     .select(`*, profiles!buyer_id(full_name)`)
     .eq('seller_id', seller.id)
     .in('status', ['pending_acceptance', 'pending_seller'])
+    .or('seller_response_deadline.is.null,seller_response_deadline.gt.' + new Date().toISOString())
     .order('created_at', { ascending: false })
 
   return data ?? []

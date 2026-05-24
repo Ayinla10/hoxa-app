@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/lib/i18n-context'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -41,6 +42,7 @@ function getProviderStyle(icon: string | null) {
 
 export default function PaymentMethodClient({ transaction, providers, preferredMethodId, sendCountry }: Props) {
   const router = useRouter()
+  const { t } = useI18n()
   const [selectedId, setSelectedId] = useState<string>(preferredMethodId ?? providers[0]?.id ?? '')
   const [loading, setLoading] = useState(false)
 

@@ -23,6 +23,7 @@ const nav = [
   { href: '/admin/risk',             icon: Shield,          label: 'Risk',                group: 'Management', badge: ''       },
   { href: '/admin/alerts',           icon: Bell,            label: 'Alerts',              group: 'Management', badge: ''       },
   { href: '/admin/analytics',        icon: BarChart2,       label: 'Analytics',           group: 'System',     badge: ''       },
+  { href: '/admin/activity',         icon: Activity,        label: 'Activity Log',        group: 'System',     badge: ''       },
   { href: '/admin/settings',         icon: Settings,        label: 'Settings',            group: 'System',     badge: ''       },
 ]
 

@@ -9,6 +9,7 @@ import {
   AlertTriangle, Loader2, Filter, SendHorizonal,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
+import BackButton from '@/components/ui/BackButton'
 import type { TKey } from '@/lib/i18n'
 
 const STATUS_KEYS: Record<string, { label: string; pill: string; dot: string }> = {
@@ -95,6 +96,7 @@ export default function SellerTransactionsClient({ transactions }: Props) {
 
   return (
     <div className="space-y-5">
+      <BackButton href="/seller/dashboard" />
       {/* Header */}
       <div>
         <h1 className="text-gray-900 font-bold text-lg">{t('transaction_history')}</h1>
@@ -209,7 +211,12 @@ export default function SellerTransactionsClient({ transactions }: Props) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{tx.from_currency} → {tx.to_currency}</td>
+                      <td className="px-4 py-3">
+                        <p className="text-gray-700 font-medium text-sm">{tx.from_currency} → {tx.to_currency}</p>
+                        {tx.buyer_destination_country && (
+                          <p className="text-gray-400 text-xs mt-0.5">→ {tx.buyer_destination_country}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-900 font-semibold">{tx.from_amount?.toLocaleString()} {tx.from_currency}</td>
                       <td className="px-4 py-3 text-gray-900">{tx.to_amount?.toFixed(2)} {tx.to_currency}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{tx.rate}</td>
@@ -259,7 +266,11 @@ export default function SellerTransactionsClient({ transactions }: Props) {
                       </div>
                       <div>
                         <p className="text-gray-900 font-medium text-sm">{tx.profiles?.full_name ?? '—'}</p>
-                        <p className="text-gray-400 text-xs">{tx.from_currency} → {tx.to_currency} · {new Date(tx.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                        <p className="text-gray-400 text-xs">
+                          {tx.from_currency} → {tx.to_currency}
+                          {tx.buyer_destination_country ? ` · ${tx.buyer_destination_country}` : ''}
+                          {' · '}{new Date(tx.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </p>
                       </div>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${st.pill}`}>

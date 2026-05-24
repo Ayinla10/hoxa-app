@@ -1,4 +1,5 @@
 'use client'
+import { useI18n } from '@/lib/i18n-context'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -40,6 +41,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 export default function PaymentInstructionClient({ transaction, provider, collectionAccount }: Props) {
   const router = useRouter()
+  const { t } = useI18n()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 

@@ -73,7 +73,7 @@ export default async function AdminTransactionDetailPage({ params }: Props) {
       rate_locked_at, ive_paid_tapped_at, payment_window_expires_at,
       payment_confirmed_at, fulfillment_confirmed_at,
       receipt_confirmed_at, settlement_released_at, completed_at,
-      dispute_reason, ops_reject_reason,
+      dispute_reason, dispute_notes, ops_reject_reason,
       manual_refund_sent_at, manual_refund_notes,
       profiles!buyer_id(id, full_name, phone, country),
       sellers(

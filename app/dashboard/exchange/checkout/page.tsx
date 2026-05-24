@@ -4,7 +4,7 @@ import { getSettings } from '@/actions/settings'
 import CheckoutClient from './CheckoutClient'
 
 interface Props {
-  searchParams: Promise<{ offer?: string; corridor?: string; amount?: string; country?: string }>
+  searchParams: Promise<{ offer?: string; corridor?: string; amount?: string; country?: string; sendPhone?: string; receivePhone?: string }>
 }
 
 export default async function CheckoutPage({ searchParams }: Props) {
@@ -13,6 +13,8 @@ export default async function CheckoutPage({ searchParams }: Props) {
   if (!user) redirect('/login')
 
   const offerId = params.offer
+  const sendPhone = params.sendPhone ?? ''
+  const receivePhone = params.receivePhone ?? ''
   if (!offerId) redirect('/dashboard/marketplace')
 
   const [profile, settings, offerResult, corridorResult] = await Promise.all([
@@ -35,7 +37,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
   ])
 
   const offer = offerResult.data
-  if (!offer) redirect('/dashboard/marketplace')
+  if (!offer || !params.amount || Number(params.amount) <= 0) redirect('/dashboard/marketplace')
 
   const feePercent = Number(settings.hoxa_buyer_fee_percent ?? settings.platform_fee_percent ?? 1)
   const rateLockSeconds = Number(settings.rate_lock_duration_seconds ?? 600)
@@ -48,6 +50,8 @@ export default async function CheckoutPage({ searchParams }: Props) {
       destinationCountry={params.country ?? ''}
       feePercent={feePercent}
       rateLockSeconds={rateLockSeconds}
+      sendPhone={sendPhone}
+      receivePhone={receivePhone}
       userProfile={{
         sendAccount: profile?.registered_send_account ?? '',
         receiveAccount: '',

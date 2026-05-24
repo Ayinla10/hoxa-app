@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ArrowRight, Loader2, X, AlertCircle, ToggleLeft, ToggleRight, Pencil, MapPin } from 'lucide-react'
+import { Plus, ArrowRight, Loader2, X, AlertCircle, ToggleLeft, ToggleRight, Pencil } from 'lucide-react'
 import { createCorridor, toggleCorridorActive, updateCorridor } from '@/actions/corridors'
 import { CURRENCY_META } from '@/lib/currency-meta'
 import CurrencyFlag from '@/components/ui/CurrencyFlag'
@@ -155,10 +155,10 @@ function CorridorRow({ corridor: c, toggling, onToggle, onEdit }: {
             <ArrowRight size={12} className="text-gray-400" />
             <CurrencyFlag code={c.receive_currency} size={18} />
             <span className="font-bold text-gray-900 text-sm">{c.receive_currency}</span>
-            <span className="text-xs text-gray-400 flex items-center gap-1">
-              <MapPin size={10} /> {c.receive_country}
-            </span>
           </div>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">
+            {c.send_country} → {c.receive_country}
+          </p>
           <p className="text-xs text-gray-400 mt-0.5">
             Min: {c.min_amount?.toLocaleString()} — Max: {c.max_amount?.toLocaleString()} {c.send_currency}
           </p>

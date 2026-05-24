@@ -109,7 +109,7 @@ export default async function BuyerDashboard() {
           <ExchangeEntryWidget
             corridors={corridors}
             userCountry={profile?.country ?? ''}
-            userSendAccount={profile?.registered_send_account ?? undefined}
+
           />
         </div>
 
@@ -184,6 +184,8 @@ export default async function BuyerDashboard() {
                   key={c.id}
                   from={c.send_currency}
                   to={c.receive_currency}
+                  sendCountry={c.send_country}
+                  receiveCountry={c.receive_country}
                   avgRate={avgRate}
                   sellerCount={sellerCount}
                   avgSpeed={sellerCount > 0 ? '~8 min' : '--'}

@@ -7,10 +7,13 @@ export type OfferInput = {
   from_currency: string
   to_currency: string
   rate: number
+  rate_send_ref?: number      // the "sends X" number the seller typed (for display)
+  rate_receive_ref?: number   // the "receives Y" number the seller typed (for display)
   min_amount: number
   max_amount: number
   available_liquidity: number
   payment_methods: string[]
+  corridor_id?: string
 }
 
 async function requireSeller() {
@@ -45,7 +48,7 @@ export async function getSellerOffers() {
 
   const { data } = await supabase
     .from('offers')
-    .select('*')
+    .select('*, corridors(send_country, receive_country)')
     .eq('seller_id', seller.id)
     .order('created_at', { ascending: false })
 
@@ -263,7 +266,11 @@ export async function deleteOffer(id: string) {
   return { success: true }
 }
 
-export async function getMarketplaceOffers(fromCurrency?: string, toCurrency?: string) {
+export async function getMarketplaceOffers(
+  fromCurrency?: string,
+  toCurrency?: string,
+  sendCountry?: string,
+) {
   const supabase = await createClient()
 
   let query = supabase
@@ -273,17 +280,26 @@ export async function getMarketplaceOffers(fromCurrency?: string, toCurrency?: s
       sellers (
         id, completion_rate, avg_response_seconds, total_transactions, status,
         profiles ( full_name, country )
-      )
+      ),
+      corridors ( id, send_country, receive_country )
     `)
     .eq('is_available', true)
     .eq('sellers.status', 'approved')
 
   if (fromCurrency) query = query.eq('from_currency', fromCurrency)
-  if (toCurrency) query = query.eq('to_currency', toCurrency)
+  if (toCurrency)   query = query.eq('to_currency', toCurrency)
 
   const { data, error } = await query.order('rate', { ascending: true })
   if (error) return []
-  // Belt-and-suspenders: re-filter approved sellers in-memory
-  // (PostgREST join filters can be unreliable with left joins)
-  return (data ?? []).filter((o: any) => o.sellers?.status === 'approved')
+
+  let results = (data ?? []).filter((o: any) => o.sellers?.status === 'approved')
+
+  // Filter by send_country via the corridor join (XOF/XAF multi-country fix)
+  if (sendCountry) {
+    results = results.filter((o: any) =>
+      !o.corridors?.send_country || o.corridors.send_country === sendCountry
+    )
+  }
+
+  return results
 }

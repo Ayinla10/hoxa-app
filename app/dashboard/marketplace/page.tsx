@@ -5,7 +5,7 @@ import MarketplaceClient from './MarketplaceClient'
 import { Store } from 'lucide-react'
 
 interface Props {
-  searchParams: Promise<{ from?: string; to?: string; amount?: string; country?: string; corridor?: string }>
+  searchParams: Promise<{ from?: string; to?: string; amount?: string; country?: string; corridor?: string; sendCountry?: string; sendPhone?: string; receivePhone?: string }>
 }
 
 export default async function MarketplacePage({ searchParams }: Props) {
@@ -15,9 +15,12 @@ export default async function MarketplacePage({ searchParams }: Props) {
   const amount = params.amount
   const destinationCountry = params.country
   const corridorId = params.corridor
+  const sendCountry = params.sendCountry
+  const sendPhone = params.sendPhone
+  const receivePhone = params.receivePhone
 
   const [offers, corridors, settings] = await Promise.all([
-    getMarketplaceOffers(from, to),
+    getMarketplaceOffers(from, to, sendCountry),
     getActiveCorridors(),
     getSettings(),
   ])
@@ -31,8 +34,11 @@ export default async function MarketplacePage({ searchParams }: Props) {
       from={from}
       to={to}
       amount={amount}
+      sendCountry={sendCountry}
       destinationCountry={destinationCountry}
       corridorId={corridorId}
+      sendPhone={sendPhone}
+      receivePhone={receivePhone}
       feePercent={feePercent}
     />
   )

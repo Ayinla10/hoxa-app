@@ -76,6 +76,7 @@ export default function AdminSettingsClient({ settings }: Props) {
   const [receiptAutoConfirm, setReceiptAutoConfirm] = useState(String(settings['receipt_auto_confirm_seconds'] ?? 10800))
 
   const [timeout, setTimeout_] = useState(String(settings['seller_response_timeout_seconds'] ?? 120))
+  const [fallbackSellerId, setFallbackSellerId] = useState(String(settings['admin_fallback_seller_id'] ?? ''))
   const [fee, setFee] = useState(String(settings['platform_fee_percent'] ?? 1.5))
   const [sessionTimeout, setSessionTimeout] = useState(String(settings['session_timeout_minutes'] ?? 15))
   const [marketplaceActive, setMarketplaceActive] = useState(settings['marketplace_active'] === true || settings['marketplace_active'] === 'true')
@@ -180,6 +181,31 @@ export default function AdminSettingsClient({ settings }: Props) {
             ))}
           </div>
           {errors['seller_response_timeout_seconds'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['seller_response_timeout_seconds']}</p>}
+        </form>
+      </SettingCard>
+
+      {/* Admin Fallback Seller */}
+      <SettingCard
+        icon={Store} iconColor="text-purple-600" iconBg="bg-purple-50"
+        title="Admin Fallback Seller"
+        description="When a seller times out, the transaction is automatically reassigned to this seller account (typically an admin-controlled account). Paste the seller record ID from the sellers table."
+      >
+        <form onSubmit={e => { e.preventDefault(); save('admin_fallback_seller_id', fallbackSellerId) }}>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={fallbackSellerId}
+              onChange={e => setFallbackSellerId(e.target.value)}
+              placeholder="seller UUID (from sellers table)"
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm font-mono focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all"
+            />
+            <SaveButton loading={loading === 'admin_fallback_seller_id'} saved={saved === 'admin_fallback_seller_id'} />
+          </div>
+          {!fallbackSellerId && (
+            <p className="text-amber-600 text-xs mt-2 flex items-center gap-1">
+              <AlertTriangle size={11} /> Not set — timed-out transactions will be cancelled instead of reassigned.
+            </p>
+          )}
         </form>
       </SettingCard>
 

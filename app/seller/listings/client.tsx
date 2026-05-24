@@ -5,8 +5,17 @@ import { Plus, FileText } from 'lucide-react'
 import ListingCard from '@/components/seller/ListingCard'
 import CreateListingModal from '@/components/seller/CreateListingModal'
 import { useI18n } from '@/lib/i18n-context'
+import BackButton from '@/components/ui/BackButton'
 
-interface Corridor { send_currency: string; receive_currency: string }
+interface Corridor {
+  id: string
+  send_currency: string
+  receive_currency: string
+  send_country: string
+  receive_country: string
+  min_amount: number
+  max_amount: number
+}
 
 export default function SellerListingsClient({ offers, corridors = [] }: { offers: any[]; corridors?: Corridor[] }) {
   const [showCreate, setShowCreate] = useState(false)
@@ -15,6 +24,7 @@ export default function SellerListingsClient({ offers, corridors = [] }: { offer
 
   return (
     <div className="px-4 lg:px-8 py-5">
+      <BackButton href="/seller/dashboard" />
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="font-bold text-gray-900 text-lg">{t('your_listings')}</h2>
@@ -49,7 +59,11 @@ export default function SellerListingsClient({ offers, corridors = [] }: { offer
                 id: offer.id,
                 fromCurrency: offer.from_currency,
                 toCurrency: offer.to_currency,
+                sendCountry: offer.corridors?.send_country ?? undefined,
+                receiveCountry: offer.corridors?.receive_country ?? undefined,
                 rate: offer.rate,
+                rateSendRef: offer.rate_send_ref ?? undefined,
+                rateReceiveRef: offer.rate_receive_ref ?? undefined,
                 liquidity: offer.available_liquidity,
                 minAmount: offer.min_amount,
                 maxAmount: offer.max_amount,

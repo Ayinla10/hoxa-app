@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Store, ArrowRight, CheckCircle2, Clock, Bell,
-  Shield, Star, Zap, ChevronRight, ArrowLeft
+  Zap, ArrowLeft
 } from 'lucide-react'
 import type { Corridor } from '@/types'
 import CurrencyFlag from '@/components/ui/CurrencyFlag'
+import ExchangeEntryWidget from '@/components/buyer/ExchangeEntryWidget'
+import BackButton from '@/components/ui/BackButton'
 
 interface Props {
   offers: any[]
@@ -16,14 +18,86 @@ interface Props {
   from?: string
   to?: string
   amount?: string
+  sendCountry?: string
   destinationCountry?: string
   corridorId?: string
+  sendPhone?: string
+  receivePhone?: string
   feePercent: number
 }
 
-const COUNTRY_EMOJI: Record<string, string> = {
-  GH: '🇬🇭', CI: '🇨🇮', SN: '🇸🇳', CM: '🇨🇲', NG: '🇳🇬', KE: '🇰🇪',
-  ML: '🇲🇱', BF: '🇧🇫', TG: '🇹🇬', BJ: '🇧🇯', UG: '🇺🇬',
+const COUNTRY_CC: Record<string, string> = {
+  'Ghana': 'gh', 'Nigeria': 'ng', "Côte d'Ivoire": 'ci', 'Senegal': 'sn',
+  'Mali': 'ml', 'Burkina Faso': 'bf', 'Togo': 'tg', 'Benin': 'bj',
+  'Niger': 'ne', 'Guinea-Bissau': 'gw', 'Cameroon': 'cm', 'Chad': 'td',
+  'Central African Rep.': 'cf', 'Republic of Congo': 'cg', 'Gabon': 'ga',
+  'Kenya': 'ke', 'Uganda': 'ug', 'Tanzania': 'tz', 'South Africa': 'za',
+  'United Kingdom': 'gb', 'France': 'fr', 'United States': 'us', 'Canada': 'ca',
+}
+
+function SmallFlag({ country }: { country?: string }) {
+  if (!country) return null
+  const cc = COUNTRY_CC[country]
+  if (!cc) return null
+  return <img src={`https://flagcdn.com/w20/${cc}.png`} width={14} height={10} alt={country} className="rounded-sm object-cover flex-shrink-0 inline-block" />
+}
+
+/** Show rate. When currencies match, show country route instead of "1 XOF = 1.00 XOF" */
+function OfferRate({ offer }: { offer: any }) {
+  const from = offer.from_currency
+  const to = offer.to_currency
+  const sameCurrency = from === to
+  const sendCountry = offer.corridors?.send_country
+  const recvCountry = offer.corridors?.receive_country
+
+  if (sameCurrency) {
+    // Same currency — show "Senegal XOF → CI XOF" with fee/rate if not 1:1
+    const rate = Number(offer.rate)
+    return (
+      <span className="inline-flex items-center gap-1 font-bold text-[#177945] flex-wrap">
+        {sendCountry && <><SmallFlag country={sendCountry} /><span>{sendCountry}</span></>}
+        <span className="text-gray-400 font-normal mx-0.5">→</span>
+        {recvCountry && <><SmallFlag country={recvCountry} /><span>{recvCountry}</span></>}
+        {rate !== 1 && (
+          <span className="text-xs font-normal text-gray-400 ml-1">({rate.toFixed(4)} rate)</span>
+        )}
+        <span className="ml-1 text-xs font-semibold text-[#177945] bg-[#177945]/10 px-1.5 py-0.5 rounded-md">{from}</span>
+      </span>
+    )
+  }
+
+  if (offer.rate_send_ref && offer.rate_receive_ref) {
+    return (
+      <span className="inline-flex items-center gap-1 font-bold text-[#177945] flex-wrap">
+        <CurrencyFlag code={from} size={14} />
+        {Number(offer.rate_send_ref).toLocaleString()} {from}
+        <span className="text-gray-400 font-normal">=</span>
+        <CurrencyFlag code={to} size={14} />
+        {Number(offer.rate_receive_ref).toLocaleString()} {to}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 font-bold text-[#177945]">
+      <CurrencyFlag code={from} size={14} />
+      1 {from} = {Number(offer.rate).toFixed(2)} {to}
+      <CurrencyFlag code={to} size={14} />
+    </span>
+  )
+}
+
+/** "Senegal → Ghana" country route line */
+function OfferRoute({ offer }: { offer: any }) {
+  const send = offer.corridors?.send_country
+  const recv = offer.corridors?.receive_country
+  if (!send && !recv) return null
+  return (
+    <p className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+      {send && <><SmallFlag country={send} /> {send}</>}
+      {send && recv && <span className="mx-0.5">→</span>}
+      {recv && <><SmallFlag country={recv} /> {recv}</>}
+    </p>
+  )
 }
 
 export default function MarketplaceClient({
@@ -32,8 +106,11 @@ export default function MarketplaceClient({
   from,
   to,
   amount,
+  sendCountry,
   destinationCountry,
   corridorId,
+  sendPhone,
+  receivePhone,
   feePercent,
 }: Props) {
   const router = useRouter()
@@ -74,46 +151,30 @@ export default function MarketplaceClient({
 
   return (
     <div className="space-y-5 min-w-0 w-full overflow-hidden">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Choose Your Exchanger</h1>
-        <p className="text-gray-500 text-sm mt-0.5 truncate">
-          {sortedOffers.length} {sortedOffers.length === 1 ? 'exchanger' : 'exchangers'} available
-          {from && to ? ` for ${from} → ${to}` : ''}
-          {destinationCountry ? ` · ${COUNTRY_EMOJI[destinationCountry] ?? ''} ${destinationCountry}` : ''}
-        </p>
-      </div>
+      <BackButton href="/dashboard" />
 
-      {/* Currency pair filter chips */}
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/dashboard/marketplace"
-          className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-            !from && !to
-              ? 'bg-[#177945] text-white border-[#177945]'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-[#177945]/50'
-          }`}
-        >
-          All Pairs
-        </Link>
-        {pairs.map(p => {
-          if (!p) return null
-          const active = from === p.from && to === p.to
-          return (
-            <Link
-              key={`${p.from}-${p.to}`}
-              href={`/dashboard/marketplace?from=${p.from}&to=${p.to}${destinationCountry ? `&country=${destinationCountry}` : ''}${amount ? `&amount=${amount}` : ''}`}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                active
-                  ? 'bg-[#177945] text-white border-[#177945]'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#177945]/50'
-              }`}
-            >
-              <CurrencyFlag code={p.from} size={16} /> {p.from} → <CurrencyFlag code={p.to} size={16} /> {p.to}
-            </Link>
-          )
-        })}
-      </div>
+      {/* Exchange widget — always visible at top of marketplace */}
+      <div className="grid lg:grid-cols-3 gap-4 items-start">
+        <div className="lg:col-span-1">
+          <ExchangeEntryWidget
+            corridors={corridors}
+            initialSendCountry={sendCountry}
+            initialDestCountry={destinationCountry}
+            initialAmount={amount}
+            initialSendPhone={sendPhone}
+            initialReceivePhone={receivePhone}
+          />
+        </div>
+        <div className="lg:col-span-2">
+          {/* Results header */}
+          <div className="mb-3">
+            <h1 className="text-xl font-bold text-gray-900">Available Exchangers</h1>
+            <p className="text-gray-500 text-sm mt-0.5">
+              {sortedOffers.length} {sortedOffers.length === 1 ? 'exchanger' : 'exchangers'} found
+              {sendCountry ? ` · from ${sendCountry}` : ''}
+              {destinationCountry ? ` → ${destinationCountry}` : (from && to ? ` for ${from} → ${to}` : '')}
+            </p>
+          </div>
 
       {/* Amount context */}
       {numAmount > 0 && from && to && (
@@ -193,7 +254,8 @@ export default function MarketplaceClient({
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1.5 font-bold text-[#177945]"><CurrencyFlag code={offer.from_currency} size={14}/> 1 {offer.from_currency} = {offer.rate} {offer.to_currency} <CurrencyFlag code={offer.to_currency} size={14}/></span>
+                        <OfferRate offer={offer} />
+                        <OfferRoute offer={offer} />
                       </td>
                       <td className="px-5 py-4">
                         <span className="text-gray-700 font-medium">{total}</span>
@@ -219,7 +281,7 @@ export default function MarketplaceClient({
                       <td className="px-5 py-4">
                         {available ? (
                           <Link
-                            href={`/dashboard/exchange/checkout?offer=${offer.id}&corridor=${corridorId ?? ''}&amount=${amount ?? ''}&country=${destinationCountry ?? ''}`}
+                            href={`/dashboard/exchange/checkout?offer=${offer.id}&corridor=${corridorId ?? ''}&amount=${amount ?? ''}&country=${destinationCountry ?? ''}&sendPhone=${sendPhone ?? ''}&receivePhone=${receivePhone ?? ''}`}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#177945] to-[#1a9152] text-white text-xs font-bold hover:opacity-90 transition-opacity shadow-sm"
                           >
                             Exchange Now <ArrowRight size={12} />
@@ -282,12 +344,11 @@ export default function MarketplaceClient({
                       </div>
                     </div>
 
-                    {/* Rate */}
+                    {/* Rate + Route */}
                     <div className="bg-[#F7F9F8] rounded-xl px-3 py-2.5 mb-3">
-                      <p className="text-xs text-gray-500">Exchange Rate</p>
-                      <p className="flex items-center gap-1.5 text-lg font-bold text-[#177945]">
-                        <CurrencyFlag code={offer.from_currency} size={16}/> 1 {offer.from_currency} = {offer.rate} {offer.to_currency} <CurrencyFlag code={offer.to_currency} size={16}/>
-                      </p>
+                      <p className="text-xs text-gray-500 mb-1">Exchange Rate</p>
+                      <OfferRate offer={offer} />
+                      <OfferRoute offer={offer} />
                     </div>
 
                     {/* Stats */}
@@ -314,7 +375,7 @@ export default function MarketplaceClient({
                     {/* CTA */}
                     {available ? (
                       <Link
-                        href={`/dashboard/exchange/checkout?offer=${offer.id}&corridor=${corridorId ?? ''}&amount=${amount ?? ''}&country=${destinationCountry ?? ''}`}
+                        href={`/dashboard/exchange/checkout?offer=${offer.id}&corridor=${corridorId ?? ''}&amount=${amount ?? ''}&country=${destinationCountry ?? ''}&sendPhone=${sendPhone ?? ''}&receivePhone=${receivePhone ?? ''}`}
                         className="w-full py-3 rounded-xl bg-gradient-to-r from-[#177945] to-[#1a9152] text-white text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                       >
                         Exchange Now <ArrowRight size={14} />
@@ -333,6 +394,8 @@ export default function MarketplaceClient({
           </div>
         </>
       )}
+        </div>
+      </div>
     </div>
   )
 }

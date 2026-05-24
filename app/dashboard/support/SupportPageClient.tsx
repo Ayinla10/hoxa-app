@@ -1,9 +1,11 @@
 'use client'
 
+
 import { useState } from 'react'
 import { MessageCircle, AlertTriangle, HelpCircle, ShieldAlert, X, Loader2, Upload, ImageIcon, ChevronDown, ChevronUp } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 import { submitSupportDispute } from '@/actions/exchange'
+import BackButton from '@/components/ui/BackButton'
 
 const ISSUE_TYPES = [
   { value: 'payment_not_received', label: 'Payment not received' },
@@ -102,6 +104,7 @@ export default function SupportPageClient({ transactions }: Props) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <BackButton href="/dashboard" />
       <div>
         <h1 className="text-xl font-bold text-gray-900">{t('support_title')}</h1>
         <p className="text-gray-400 text-sm mt-0.5">{t('support_sub')}</p>

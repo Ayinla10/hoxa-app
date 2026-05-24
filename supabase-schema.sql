@@ -108,6 +108,11 @@ create policy "Sellers see assigned transactions" on transactions for select usi
 create policy "Admins see all transactions" on transactions for select using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
 );
+create policy "Buyers insert own transactions" on transactions for insert with check (auth.uid() = buyer_id);
+create policy "Buyers update own transactions" on transactions for update using (auth.uid() = buyer_id);
+create policy "Sellers update assigned transactions" on transactions for update using (
+  exists (select 1 from sellers where id = seller_id and user_id = auth.uid())
+);
 create policy "Admins update transactions" on transactions for update using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
 );

@@ -12,16 +12,64 @@ export interface Listing {
   id: string
   fromCurrency: string
   toCurrency: string
+  sendCountry?: string
+  receiveCountry?: string
   rate: number
+  rateSendRef?: number     // seller's original "sends X" amount
+  rateReceiveRef?: number  // seller's original "receives Y" amount
   liquidity: number
   minAmount: number
   maxAmount: number
   status: 'active' | 'paused' | 'busy'
 }
 
+const COUNTRY_CC: Record<string, string> = {
+  'Ghana': 'gh', 'Nigeria': 'ng', "Côte d'Ivoire": 'ci', 'Senegal': 'sn',
+  'Mali': 'ml', 'Burkina Faso': 'bf', 'Togo': 'tg', 'Benin': 'bj',
+  'Niger': 'ne', 'Guinea-Bissau': 'gw', 'Cameroon': 'cm', 'Chad': 'td',
+  'Central African Rep.': 'cf', 'Republic of Congo': 'cg', 'Gabon': 'ga',
+  'Equatorial Guinea': 'gq', 'Kenya': 'ke', 'Uganda': 'ug', 'Tanzania': 'tz',
+  'South Africa': 'za', 'United Kingdom': 'gb', 'France': 'fr', 'United States': 'us',
+}
+
+function SmallFlag({ country }: { country: string }) {
+  const cc = COUNTRY_CC[country]
+  if (!cc) return null
+  return <img src={`https://flagcdn.com/w20/${cc}.png`} width={14} height={10} alt={country} className="rounded-sm object-cover flex-shrink-0 inline-block" />
+}
+
 interface Props {
   listing: Listing
   onEdit?: () => void
+}
+
+/** Shows rate exactly as the seller typed it, e.g. "10,000 XOF = 218 GHS" */
+function RateDisplay({ listing }: { listing: Listing }) {
+  const { fromCurrency, toCurrency, rate, rateSendRef, rateReceiveRef } = listing
+
+  if (rateSendRef && rateReceiveRef) {
+    // Exact seller-entered values
+    return (
+      <p className="text-gray-900 font-semibold text-sm flex items-center gap-1.5 flex-wrap">
+        <CurrencyFlag code={fromCurrency} size={14} />
+        <span>{rateSendRef.toLocaleString()} {fromCurrency}</span>
+        <span className="text-gray-400">=</span>
+        <CurrencyFlag code={toCurrency} size={14} />
+        <span>{rateReceiveRef.toLocaleString()} {toCurrency}</span>
+      </p>
+    )
+  }
+
+  // Fallback for older offers: "1 FROM = X.XX TO"
+  return (
+    <p className="text-gray-900 font-semibold text-sm flex items-center gap-1.5 flex-wrap">
+      <CurrencyFlag code={fromCurrency} size={14} />
+      <span>1 {fromCurrency}</span>
+      <span className="text-gray-400">=</span>
+      <CurrencyFlag code={toCurrency} size={14} />
+      <span>{rate.toFixed(2)} {toCurrency}</span>
+    </p>
+  )
 }
 
 export default function ListingCard({ listing, onEdit }: Props) {
@@ -43,33 +91,49 @@ export default function ListingCard({ listing, onEdit }: Props) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-gray-900 font-bold text-base">
-            <span className="inline-flex items-center gap-1.5"><CurrencyFlag code={listing.fromCurrency} size={16} /> {listing.fromCurrency} → <CurrencyFlag code={listing.toCurrency} size={16} /> {listing.toCurrency}</span>
+            <span className="inline-flex items-center gap-1.5">
+              <CurrencyFlag code={listing.fromCurrency} size={16} />
+              {listing.fromCurrency}
+              <span className="text-gray-300">→</span>
+              <CurrencyFlag code={listing.toCurrency} size={16} />
+              {listing.toCurrency}
+            </span>
           </p>
-          <p className="text-gray-400 text-xs">#{listing.id.slice(0, 8)}</p>
+          {/* Send → Receive countries in text */}
+          {(listing.sendCountry || listing.receiveCountry) && (
+            <p className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
+              {listing.sendCountry && <><SmallFlag country={listing.sendCountry} /> <span>{listing.sendCountry}</span></>}
+              {listing.sendCountry && listing.receiveCountry && <span className="text-gray-300">→</span>}
+              {listing.receiveCountry && <><SmallFlag country={listing.receiveCountry} /> <span>{listing.receiveCountry}</span></>}
+            </p>
+          )}
+          <p className="text-gray-400 text-xs mt-0.5">#{listing.id.slice(0, 8)}</p>
         </div>
         <StatusBadge status={status} />
       </div>
 
-      {/* Rate & Liquidity */}
-      <div className="bg-[#F7F9F8] rounded-xl p-3 mb-3 grid grid-cols-2 gap-2">
+      {/* Rate — shown in the seller's natural format */}
+      <div className="bg-[#F7F9F8] rounded-xl p-3 mb-3 space-y-2.5">
         <div>
-          <p className="text-gray-400 text-xs mb-0.5">{t('rate')}</p>
-          <p className="text-gray-900 font-semibold">{listing.rate}</p>
+          <p className="text-gray-400 text-xs mb-1">{t('rate')}</p>
+          <RateDisplay listing={listing} />
         </div>
-        <div>
-          <p className="text-gray-400 text-xs mb-0.5">{t('liquidity')}</p>
-          <p className="text-gray-900 font-semibold">{listing.liquidity.toLocaleString()} {listing.toCurrency}</p>
-        </div>
-        <div>
-          <p className="text-gray-400 text-xs mb-0.5">{t('min')}</p>
-          <p className="text-gray-700 text-sm">{listing.minAmount.toLocaleString()} {listing.fromCurrency}</p>
-        </div>
-        <div>
-          <p className="text-gray-400 text-xs mb-0.5">{t('max')}</p>
-          <p className="text-gray-700 text-sm">{listing.maxAmount.toLocaleString()} {listing.fromCurrency}</p>
+        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+          <div>
+            <p className="text-gray-400 text-[10px] mb-0.5">{t('min')}</p>
+            <p className="text-gray-700 text-xs font-medium">{listing.minAmount.toLocaleString()} <span className="text-gray-400">{listing.fromCurrency}</span></p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-[10px] mb-0.5">{t('max')}</p>
+            <p className="text-gray-700 text-xs font-medium">{listing.maxAmount.toLocaleString()} <span className="text-gray-400">{listing.fromCurrency}</span></p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-[10px] mb-0.5">{t('liquidity')}</p>
+            <p className="text-gray-700 text-xs font-medium">{listing.liquidity.toLocaleString()} <span className="text-gray-400">{listing.toCurrency}</span></p>
+          </div>
         </div>
       </div>
 

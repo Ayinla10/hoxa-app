@@ -25,7 +25,20 @@ create table if not exists corridors (
   unique (send_country, send_currency, receive_country, receive_currency)
 );
 
+alter table corridors add column if not exists send_country text not null default '';
+alter table corridors add column if not exists send_currency text not null default '';
+alter table corridors add column if not exists receive_country text not null default '';
+alter table corridors add column if not exists receive_currency text not null default '';
+alter table corridors add column if not exists collection_account_id uuid;
+alter table corridors add column if not exists min_amount numeric not null default 10;
+alter table corridors add column if not exists max_amount numeric not null default 50000;
+alter table corridors add column if not exists is_active boolean not null default true;
+alter table corridors add column if not exists launched_at timestamptz;
+alter table corridors add column if not exists created_at timestamptz not null default now();
+alter table corridors add column if not exists updated_at timestamptz not null default now();
 alter table corridors enable row level security;
+drop policy if exists "Anyone can read active corridors" on corridors;
+drop policy if exists "Admins manage corridors" on corridors;
 create policy "Anyone can read active corridors" on corridors for select using (true);
 create policy "Admins manage corridors" on corridors for all using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
@@ -45,14 +58,26 @@ create table if not exists hoxa_collection_accounts (
   updated_at timestamptz not null default now()
 );
 
+alter table hoxa_collection_accounts add column if not exists country text not null default '';
+alter table hoxa_collection_accounts add column if not exists currency text not null default '';
+alter table hoxa_collection_accounts add column if not exists provider text not null default '';
+alter table hoxa_collection_accounts add column if not exists account_number text not null default '';
+alter table hoxa_collection_accounts add column if not exists account_name text not null default 'HOXA Secure Account';
+alter table hoxa_collection_accounts add column if not exists is_active boolean not null default true;
+alter table hoxa_collection_accounts add column if not exists created_at timestamptz not null default now();
+alter table hoxa_collection_accounts add column if not exists updated_at timestamptz not null default now();
 alter table hoxa_collection_accounts enable row level security;
+drop policy if exists "Anyone can read active collection accounts" on hoxa_collection_accounts;
+drop policy if exists "Admins manage collection accounts" on hoxa_collection_accounts;
 create policy "Anyone can read active collection accounts" on hoxa_collection_accounts
   for select using (true);
 create policy "Admins manage collection accounts" on hoxa_collection_accounts for all using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
 );
 
--- Add FK from corridors to collection accounts
+-- Add FK from corridors to collection accounts (safe re-run)
+alter table corridors
+  drop constraint if exists corridors_collection_account_fk;
 alter table corridors
   add constraint corridors_collection_account_fk
   foreign key (collection_account_id)
@@ -74,10 +99,27 @@ create table if not exists payment_providers (
   sort_order integer not null default 100,  -- lower = shown first (apps first, USSD last)
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (country, currency, provider_name)
 );
 
+alter table payment_providers alter column name set default '';
+alter table payment_providers add column if not exists country text not null default '';
+alter table payment_providers add column if not exists currency text not null default '';
+alter table payment_providers add column if not exists provider_name text not null default '';
+alter table payment_providers add column if not exists method_type text not null default 'app';
+alter table payment_providers add column if not exists display_name text not null default '';
+alter table payment_providers add column if not exists display_icon text;
+alter table payment_providers add column if not exists instruction_template jsonb not null default '{}';
+alter table payment_providers add column if not exists account_number_format text;
+alter table payment_providers add column if not exists account_number_length integer;
+alter table payment_providers add column if not exists sort_order integer not null default 100;
+alter table payment_providers add column if not exists is_active boolean not null default true;
+alter table payment_providers add column if not exists created_at timestamptz not null default now();
+alter table payment_providers add column if not exists updated_at timestamptz not null default now();
 alter table payment_providers enable row level security;
+drop policy if exists "Anyone can read active providers" on payment_providers;
+drop policy if exists "Admins manage providers" on payment_providers;
 create policy "Anyone can read active providers" on payment_providers for select using (true);
 create policy "Admins manage providers" on payment_providers for all using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
@@ -96,6 +138,8 @@ create table if not exists buyer_seller_watches (
 );
 
 alter table buyer_seller_watches enable row level security;
+drop policy if exists "Buyers manage own watches" on buyer_seller_watches;
+drop policy if exists "Admins read all watches" on buyer_seller_watches;
 create policy "Buyers manage own watches" on buyer_seller_watches for all using (auth.uid() = buyer_id);
 create policy "Admins read all watches" on buyer_seller_watches for select using (
   exists (select 1 from profiles where id = auth.uid() and role = 'admin')
@@ -223,15 +267,19 @@ begin
 end;
 $$;
 
+drop trigger if exists set_transactions_updated_at on transactions;
 create trigger set_transactions_updated_at before update on transactions
   for each row execute function update_updated_at();
 
+drop trigger if exists set_corridors_updated_at on corridors;
 create trigger set_corridors_updated_at before update on corridors
   for each row execute function update_updated_at();
 
+drop trigger if exists set_payment_providers_updated_at on payment_providers;
 create trigger set_payment_providers_updated_at before update on payment_providers
   for each row execute function update_updated_at();
 
+drop trigger if exists set_collection_accounts_updated_at on hoxa_collection_accounts;
 create trigger set_collection_accounts_updated_at before update on hoxa_collection_accounts
   for each row execute function update_updated_at();
 
@@ -239,54 +287,213 @@ create trigger set_collection_accounts_updated_at before update on hoxa_collecti
 -- 5. REALTIME SUBSCRIPTIONS
 -- ══════════════════════════════════════════════
 
-alter publication supabase_realtime add table corridors;
-alter publication supabase_realtime add table buyer_seller_watches;
+do $$ begin
+  alter publication supabase_realtime add table corridors;
+exception when others then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table buyer_seller_watches;
+exception when others then null; end $$;
 
 -- ══════════════════════════════════════════════
 -- 6. SEED DATA — Launch corridor + providers
 -- ══════════════════════════════════════════════
 
--- Insert initial collection accounts
+-- Insert initial collection accounts (safe re-run)
 insert into hoxa_collection_accounts (id, country, currency, provider, account_number, account_name)
-values
-  ('a0000000-0000-0000-0000-000000000001', 'GH', 'GHS', 'MTN Ghana', '0241234567', 'HOXA Secure Account'),
-  ('a0000000-0000-0000-0000-000000000002', 'CI', 'XOF', 'Orange Money', '0712345678', 'HOXA Secure Account')
-on conflict do nothing;
+select 'a0000000-0000-0000-0000-000000000001', 'GH', 'GHS', 'MTN Ghana', '0241234567', 'HOXA Secure Account'
+where not exists (select 1 from hoxa_collection_accounts where id = 'a0000000-0000-0000-0000-000000000001');
 
--- Insert launch corridors
+insert into hoxa_collection_accounts (id, country, currency, provider, account_number, account_name)
+select 'a0000000-0000-0000-0000-000000000002', 'CI', 'XOF', 'Orange Money', '0712345678', 'HOXA Secure Account'
+where not exists (select 1 from hoxa_collection_accounts where id = 'a0000000-0000-0000-0000-000000000002');
+
+-- Insert launch corridors (safe re-run)
 insert into corridors (send_country, send_currency, receive_country, receive_currency, collection_account_id, min_amount, max_amount, is_active, launched_at)
-values
-  ('GH', 'GHS', 'CI', 'XOF', 'a0000000-0000-0000-0000-000000000001', 50, 50000, true, now()),
-  ('CI', 'XOF', 'GH', 'GHS', 'a0000000-0000-0000-0000-000000000002', 5000, 5000000, true, now())
-on conflict (send_country, send_currency, receive_country, receive_currency) do nothing;
+select 'GH', 'GHS', 'CI', 'XOF', 'a0000000-0000-0000-0000-000000000001', 50, 50000, true, now()
+where not exists (select 1 from corridors where send_country='GH' and send_currency='GHS' and receive_country='CI' and receive_currency='XOF');
 
--- Insert payment providers for Ghana
-insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
-values
-  ('GH', 'GHS', 'Wave Ghana', 'app', 'Wave', 'wave', 10,
-    '{"steps": ["Open your Wave app", "Tap Send Money", "Enter the number below", "Enter the exact amount", "Add the reference in the note field", "Confirm and send"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb),
-  ('GH', 'GHS', 'MTN MoMo', 'app', 'MTN MoMo', 'mtn', 20,
-    '{"steps": ["Open your MTN MoMo app", "Tap Transfer", "Select Send Money", "Enter the number below", "Enter the exact amount", "Add the reference in the note", "Confirm"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb),
-  ('GH', 'GHS', 'Telecel Cash', 'app', 'Telecel Cash', 'telecel', 30,
-    '{"steps": ["Open your Telecel Cash app", "Tap Send Money", "Enter the number below", "Enter the exact amount", "Add the reference", "Confirm"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb),
-  ('GH', 'GHS', 'MTN USSD', 'ussd', 'USSD (MTN)', 'ussd', 90,
-    '{"dial": "*170#", "steps": ["Dial *170#", "Select Send Money (Option 1)", "Select MoMo User", "Enter number: {hoxa_account_number}", "Enter amount: {send_amount}", "Enter reference: {hoxa_transaction_id}", "Confirm with your PIN"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}"}}'::jsonb),
-  ('GH', 'GHS', 'GCB Bank', 'bank', 'Bank Transfer', 'bank', 80,
-    '{"bank_name": "GCB Bank Ghana", "account_number": "{hoxa_account_number}", "account_name": "HOXA Secure Account", "fields": {"amount": "{send_amount}", "reference": "{hoxa_transaction_id}"}}'::jsonb)
-on conflict do nothing;
+insert into corridors (send_country, send_currency, receive_country, receive_currency, collection_account_id, min_amount, max_amount, is_active, launched_at)
+select 'CI', 'XOF', 'GH', 'GHS', 'a0000000-0000-0000-0000-000000000002', 5000, 5000000, true, now()
+where not exists (select 1 from corridors where send_country='CI' and send_currency='XOF' and receive_country='GH' and receive_currency='GHS');
 
--- Insert payment providers for Cote d'Ivoire
+-- ── XOF ↔ XOF (same currency, different UEMOA countries) ──
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Senegal', 'XOF', 'Côte d''Ivoire', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Senegal' and receive_country='Côte d''Ivoire');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Côte d''Ivoire', 'XOF', 'Senegal', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Côte d''Ivoire' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Senegal', 'XOF', 'Mali', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Senegal' and receive_country='Mali');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Mali', 'XOF', 'Senegal', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Mali' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Senegal', 'XOF', 'Burkina Faso', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Senegal' and receive_country='Burkina Faso');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Burkina Faso', 'XOF', 'Senegal', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Burkina Faso' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Côte d''Ivoire', 'XOF', 'Mali', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Côte d''Ivoire' and receive_country='Mali');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Mali', 'XOF', 'Côte d''Ivoire', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Mali' and receive_country='Côte d''Ivoire');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Côte d''Ivoire', 'XOF', 'Burkina Faso', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Côte d''Ivoire' and receive_country='Burkina Faso');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Burkina Faso', 'XOF', 'Côte d''Ivoire', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Burkina Faso' and receive_country='Côte d''Ivoire');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Togo', 'XOF', 'Benin', 'XOF', 1000, 1000000, true, now()
+where not exists (select 1 from corridors where send_country='Togo' and receive_country='Benin');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Benin', 'XOF', 'Togo', 'XOF', 1000, 1000000, true, now()
+where not exists (select 1 from corridors where send_country='Benin' and receive_country='Togo');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Togo', 'XOF', 'Côte d''Ivoire', 'XOF', 1000, 1000000, true, now()
+where not exists (select 1 from corridors where send_country='Togo' and receive_country='Côte d''Ivoire');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Benin', 'XOF', 'Senegal', 'XOF', 1000, 1000000, true, now()
+where not exists (select 1 from corridors where send_country='Benin' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Niger', 'XOF', 'Senegal', 'XOF', 1000, 1000000, true, now()
+where not exists (select 1 from corridors where send_country='Niger' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Senegal', 'XOF', 'Niger', 'XOF', 1000, 1000000, true, now()
+where not exists (select 1 from corridors where send_country='Senegal' and receive_country='Niger');
+
+-- ── XAF ↔ XAF (same currency, different CEMAC countries) ──
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Cameroon', 'XAF', 'Chad', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Cameroon' and receive_country='Chad');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Chad', 'XAF', 'Cameroon', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Chad' and receive_country='Cameroon');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Cameroon', 'XAF', 'Gabon', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Cameroon' and receive_country='Gabon');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Gabon', 'XAF', 'Cameroon', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Gabon' and receive_country='Cameroon');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Cameroon', 'XAF', 'Republic of Congo', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Cameroon' and receive_country='Republic of Congo');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Republic of Congo', 'XAF', 'Cameroon', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Republic of Congo' and receive_country='Cameroon');
+
+-- ── XOF ↔ XAF (cross-zone CFA) ──
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Senegal', 'XOF', 'Cameroon', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Senegal' and receive_country='Cameroon');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Cameroon', 'XAF', 'Senegal', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Cameroon' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Côte d''Ivoire', 'XOF', 'Cameroon', 'XAF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Côte d''Ivoire' and receive_country='Cameroon');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Cameroon', 'XAF', 'Côte d''Ivoire', 'XOF', 1000, 2000000, true, now()
+where not exists (select 1 from corridors where send_country='Cameroon' and receive_country='Côte d''Ivoire');
+
+-- ── GHS ↔ XOF additional countries ──
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Ghana', 'GHS', 'Senegal', 'XOF', 50, 50000, true, now()
+where not exists (select 1 from corridors where send_country='Ghana' and receive_country='Senegal');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Senegal', 'XOF', 'Ghana', 'GHS', 5000, 5000000, true, now()
+where not exists (select 1 from corridors where send_country='Senegal' and receive_country='Ghana');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Ghana', 'GHS', 'Togo', 'XOF', 50, 50000, true, now()
+where not exists (select 1 from corridors where send_country='Ghana' and receive_country='Togo');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Togo', 'XOF', 'Ghana', 'GHS', 5000, 5000000, true, now()
+where not exists (select 1 from corridors where send_country='Togo' and receive_country='Ghana');
+
+-- ── Nigeria ↔ Ghana ──
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Nigeria', 'NGN', 'Ghana', 'GHS', 5000, 5000000, true, now()
+where not exists (select 1 from corridors where send_country='Nigeria' and receive_country='Ghana');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Ghana', 'GHS', 'Nigeria', 'NGN', 50, 50000, true, now()
+where not exists (select 1 from corridors where send_country='Ghana' and receive_country='Nigeria');
+
+-- ── Nigeria ↔ XOF ──
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Nigeria', 'NGN', 'Côte d''Ivoire', 'XOF', 5000, 5000000, true, now()
+where not exists (select 1 from corridors where send_country='Nigeria' and receive_country='Côte d''Ivoire');
+
+insert into corridors (send_country, send_currency, receive_country, receive_currency, min_amount, max_amount, is_active, launched_at)
+select 'Nigeria', 'NGN', 'Senegal', 'XOF', 5000, 5000000, true, now()
+where not exists (select 1 from corridors where send_country='Nigeria' and receive_country='Senegal');
+
+-- Insert payment providers (safe re-run — skip if provider_name already exists for that country)
 insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
-values
-  ('CI', 'XOF', 'Wave CI', 'app', 'Wave', 'wave', 10,
-    '{"steps": ["Ouvrez votre application Wave", "Appuyez sur Envoyer", "Entrez le numero ci-dessous", "Entrez le montant exact", "Ajoutez la reference dans la note", "Confirmez"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": true}'::jsonb),
-  ('CI', 'XOF', 'Orange Money CI', 'app', 'Orange Money', 'orange', 20,
-    '{"steps": ["Ouvrez Orange Money", "Appuyez sur Transfert", "Entrez le numero ci-dessous", "Entrez le montant exact", "Ajoutez la reference", "Confirmez"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb),
-  ('CI', 'XOF', 'MTN MoMo CI', 'app', 'MTN MoMo', 'mtn', 30,
-    '{"steps": ["Ouvrez MTN MoMo", "Appuyez sur Envoyer de l''argent", "Entrez le numero", "Entrez le montant", "Ajoutez la reference", "Confirmez"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb),
-  ('CI', 'XOF', 'Orange USSD CI', 'ussd', 'USSD (Orange)', 'ussd', 90,
-    '{"dial": "#144#", "steps": ["Composez #144#", "Selectionnez Transfert", "Entrez le numero: {hoxa_account_number}", "Entrez le montant: {send_amount}", "Entrez reference: {hoxa_transaction_id}", "Confirmez avec votre code secret"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}"}}'::jsonb)
-on conflict do nothing;
+select 'GH', 'GHS', 'Wave Ghana', 'app', 'Wave', 'wave', 10, '{"steps": ["Open your Wave app", "Tap Send Money", "Enter the number below", "Enter the exact amount", "Add the reference in the note field", "Confirm and send"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='Wave Ghana');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'GH', 'GHS', 'MTN MoMo', 'app', 'MTN MoMo', 'mtn', 20, '{"steps": ["Open your MTN MoMo app", "Tap Transfer", "Select Send Money", "Enter the number below", "Enter the exact amount", "Add the reference in the note", "Confirm"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='MTN MoMo');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'GH', 'GHS', 'Telecel Cash', 'app', 'Telecel Cash', 'telecel', 30, '{"steps": ["Open your Telecel Cash app", "Tap Send Money", "Enter the number below", "Enter the exact amount", "Add the reference", "Confirm"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='Telecel Cash');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'GH', 'GHS', 'MTN USSD', 'ussd', 'USSD (MTN)', 'ussd', 90, '{"dial": "*170#", "steps": ["Dial *170#", "Select Send Money (Option 1)", "Select MoMo User", "Enter number: {hoxa_account_number}", "Enter amount: {send_amount}", "Enter reference: {hoxa_transaction_id}", "Confirm with your PIN"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}"}}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='MTN USSD');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'GH', 'GHS', 'GCB Bank', 'bank', 'Bank Transfer', 'bank', 80, '{"bank_name": "GCB Bank Ghana", "account_number": "{hoxa_account_number}", "account_name": "HOXA Secure Account", "fields": {"amount": "{send_amount}", "reference": "{hoxa_transaction_id}"}}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='GCB Bank');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'CI', 'XOF', 'Wave CI', 'app', 'Wave', 'wave', 10, '{"steps": ["Ouvrez votre application Wave", "Appuyez sur Envoyer", "Entrez le numero ci-dessous", "Entrez le montant exact", "Ajoutez la reference dans la note", "Confirmez"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": true}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='Wave CI');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'CI', 'XOF', 'Orange Money CI', 'app', 'Orange Money', 'orange', 20, '{"steps": ["Ouvrez Orange Money", "Appuyez sur Transfert", "Entrez le numero ci-dessous", "Entrez le montant exact", "Ajoutez la reference", "Confirmez"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='Orange Money CI');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'CI', 'XOF', 'MTN MoMo CI', 'app', 'MTN MoMo CI', 'mtn', 30, '{"steps": ["Ouvrez MTN MoMo", "Appuyez sur Envoyer de l''argent", "Entrez le numero", "Entrez le montant", "Ajoutez la reference", "Confirmez"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}", "note": "{hoxa_transaction_id}"}, "supports_qr": false}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='MTN MoMo CI');
+
+insert into payment_providers (country, currency, provider_name, method_type, display_name, display_icon, sort_order, instruction_template)
+select 'CI', 'XOF', 'Orange USSD CI', 'ussd', 'USSD (Orange)', 'ussd', 90, '{"dial": "#144#", "steps": ["Composez #144#", "Selectionnez Transfert", "Entrez le numero: {hoxa_account_number}", "Entrez le montant: {send_amount}", "Entrez reference: {hoxa_transaction_id}", "Confirmez avec votre code secret"], "fields": {"number": "{hoxa_account_number}", "amount": "{send_amount}"}}'::jsonb
+where not exists (select 1 from payment_providers where provider_name='Orange USSD CI');
 
 -- ══════════════════════════════════════════════
 -- 7. NEW PLATFORM SETTINGS for v5.1

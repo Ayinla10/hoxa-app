@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { updateAutoAcceptRules, updateAvailabilitySchedule } from '@/actions/listings'
 import { createClient } from '@/lib/supabase/client'
+import BackButton from '@/components/ui/BackButton'
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const DAY_LABELS: Record<string, string> = {
@@ -93,6 +94,7 @@ export default function SellerSettingsClient({
 
   return (
     <div className="max-w-2xl space-y-6">
+      <BackButton href="/seller/dashboard" />
       <div>
         <h1 className="text-lg font-bold text-gray-900">{t('nav_settings')}</h1>
         <p className="text-gray-400 text-sm mt-0.5">{t('settings_sub')}</p>

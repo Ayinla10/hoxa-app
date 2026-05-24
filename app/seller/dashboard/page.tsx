@@ -62,7 +62,7 @@ export default async function SellerDashboardPage() {
   ] = await Promise.all([
     supabase
       .from('offers')
-      .select('*')
+      .select('*, corridors(send_country, receive_country)')
       .eq('seller_id', seller.id)
       .order('created_at', { ascending: false }),
     supabase
@@ -129,7 +129,11 @@ export default async function SellerDashboardPage() {
     id: o.id,
     fromCurrency: o.from_currency,
     toCurrency: o.to_currency,
+    sendCountry: o.corridors?.send_country ?? undefined,
+    receiveCountry: o.corridors?.receive_country ?? undefined,
     rate: o.rate,
+    rateSendRef: o.rate_send_ref ?? undefined,
+    rateReceiveRef: o.rate_receive_ref ?? undefined,
     liquidity: o.available_liquidity,
     minAmount: o.min_amount,
     maxAmount: o.max_amount,
@@ -162,6 +166,7 @@ export default async function SellerDashboardPage() {
 
         {/* Wallet Card */}
         <WalletCard
+          sellerName={sellerName}
           liquidity={totalLiquidity}
           pendingSettlements={pendingSettlement}
           dailyVolume={dailyVolume}

@@ -49,6 +49,7 @@ export async function initiateExchange(input: {
   const settings = await getSettings()
   const feePercent = Number(settings.hoxa_buyer_fee_percent ?? settings.platform_fee_percent ?? 1)
   const rateLockSeconds = Number(settings.rate_lock_duration_seconds ?? 600)
+  const acceptTimeoutSeconds = Number(settings.seller_response_timeout_seconds ?? 120)
 
   const feeAmount = Math.round(sendSubtotal * (feePercent / 100) * 100) / 100
   const totalPay = sendSubtotal + feeAmount
@@ -58,11 +59,10 @@ export async function initiateExchange(input: {
   const now = new Date()
   const rateExpiresAt = new Date(now.getTime() + rateLockSeconds * 1000)
 
-  const { data: txn, error: txnErr } = await supabase.from('transactions').insert({
+  const { data: txn, error: txnErr } = await service.from('transactions').insert({
     buyer_id: user.id,
     seller_id: offer.seller_id,
     offer_id: input.offer_id,
-    corridor_id: input.corridor_id,
     // V5.1 fields — all computed server-side
     send_amount: totalPay,
     send_currency: offer.from_currency,
@@ -78,6 +78,7 @@ export async function initiateExchange(input: {
     buyer_destination_country: input.buyer_destination_country,
     rate_locked_at: now.toISOString(),
     rate_expires_at: rateExpiresAt.toISOString(),
+    seller_response_deadline: new Date(now.getTime() + acceptTimeoutSeconds * 1000).toISOString(),
     status: 'pending_acceptance',
     // Legacy fields for backward compat
     from_currency: offer.from_currency,
@@ -87,7 +88,10 @@ export async function initiateExchange(input: {
     rate: offer.rate,
   }).select().single()
 
-  if (txnErr) return { error: 'Failed to create exchange' }
+  if (txnErr) {
+    console.error('[initiateExchange] DB error:', txnErr.message, txnErr.details)
+    return { error: 'Something went wrong. Please try again or contact support.' }
+  }
 
   // Prevent duplicate pending transactions: if the buyer already has a pending tx
   // on this offer, cancel the old one before creating a new one
@@ -728,6 +732,79 @@ export async function opsFavourBuyer(transactionId: string) {
   return { success: true }
 }
 
+/**
+ * Called by the buyer's waiting page when the seller response deadline has passed.
+ * Reassigns the transaction to the admin fallback seller account.
+ */
+export async function handleSellerTimeout(transactionId: string) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: txn } = await supabase
+    .from('transactions')
+    .select('id, status, buyer_id, seller_id, seller_response_deadline, send_amount, send_currency, receive_amount, receive_currency, hoxa_transaction_id')
+    .eq('id', transactionId)
+    .eq('buyer_id', user.id)
+    .single()
+
+  if (!txn) return { error: 'Transaction not found' }
+  if (txn.status !== 'pending_acceptance') return { already_handled: true }
+
+  // Only act if deadline has actually passed
+  if (txn.seller_response_deadline && new Date(txn.seller_response_deadline) > new Date()) {
+    return { not_yet: true }
+  }
+
+  const service = createServiceClient()
+
+  // Mark original seller as timed out, then look for admin fallback seller
+  const settings = await getSettings()
+  const fallbackSellerId = settings.admin_fallback_seller_id as string | undefined
+
+  if (!fallbackSellerId) {
+    // No fallback configured — just mark as seller_timeout and cancel
+    await service.from('transactions').update({ status: 'seller_timeout' }).eq('id', transactionId)
+    await createNotification(
+      txn.buyer_id,
+      'Exchanger did not respond',
+      'The exchanger did not accept your request in time. Please try a different exchanger.',
+      'warning'
+    )
+    revalidatePath(`/dashboard/transactions/${transactionId}`)
+    return { timedOut: true }
+  }
+
+  // Reassign to admin fallback seller and move to awaiting_payment
+  const { data: fallbackSeller } = await service
+    .from('sellers')
+    .select('id, user_id')
+    .eq('id', fallbackSellerId)
+    .single()
+
+  if (!fallbackSeller) {
+    await service.from('transactions').update({ status: 'seller_timeout' }).eq('id', transactionId)
+    revalidatePath(`/dashboard/transactions/${transactionId}`)
+    return { timedOut: true }
+  }
+
+  await service.from('transactions').update({
+    seller_id: fallbackSeller.id,
+    status: 'awaiting_payment',
+  }).eq('id', transactionId)
+
+  const ref = txn.hoxa_transaction_id ?? transactionId.slice(0, 8)
+  await createNotification(
+    txn.buyer_id,
+    'Exchange accepted — please pay now',
+    `Your request (${ref}) has been picked up. Please proceed to payment.`,
+    'success'
+  )
+
+  revalidatePath(`/dashboard/exchange/waiting`)
+  revalidatePath(`/dashboard/transactions/${transactionId}`)
+  return { reassigned: true }
+}
+
 // ── Helpers ──
 
 /**
@@ -927,4 +1004,118 @@ function computeSellerStatus(seller: Record<string, unknown>): 'available' | 'of
 function computeNextAvailable(seller: Record<string, unknown>): string | null {
   // Simplified: return null for now, can be computed from weekly_hours
   return null
+}
+
+// ── ADMIN AUDIT LOGGING ─────────────────────────────────────────────────────
+async function logAdminAction(
+  adminId: string,
+  action: string,
+  entity: string,
+  entityId: string,
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    const service = createServiceClient()
+    await service.from('audit_logs').insert({
+      actor_id: adminId,
+      actor_role: 'admin',
+      action,
+      entity,
+      entity_id: entityId,
+      metadata,
+    })
+  } catch {
+    // Non-fatal — never block main action for logging failure
+  }
+}
+
+// ── DISPUTE: Favour Seller (correctly handles 'disputed' status) ─────────────
+export async function opsResolveDisputeSellerWins(transactionId: string) {
+  const { user } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const service = createServiceClient()
+  const { data: profile } = await service.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Admin access required' }
+
+  const { data: txn } = await service
+    .from('transactions')
+    .select('id, status, seller_id, buyer_id, seller_settlement_amount, send_amount, send_currency, from_amount, from_currency, hoxa_transaction_id, dispute_reason')
+    .eq('id', transactionId)
+    .single()
+
+  if (!txn) return { error: 'Transaction not found' }
+  if (txn.status !== 'disputed') return { error: 'Transaction is not in a disputed state' }
+
+  const ref = txn.hoxa_transaction_id ?? transactionId.slice(0, 8)
+  const now = new Date().toISOString()
+
+  const { error } = await service.from('transactions').update({
+    status: 'fully_completed',
+    settlement_released_at: now,
+    completed_at: now,
+    ops_reject_reason: null,
+  }).eq('id', transactionId)
+
+  if (error) return { error: 'Failed to resolve dispute' }
+
+  // Notify seller — they won
+  const { data: seller } = await service.from('sellers').select('user_id, total_transactions, completion_rate').eq('id', txn.seller_id).single()
+  if (seller?.user_id) {
+    await createNotification(
+      seller.user_id,
+      `Dispute Resolved in Your Favour — ${ref}`,
+      `We've reviewed the dispute and ruled in your favour. Your settlement for transaction ${ref} will be released to your account.`,
+      'success'
+    )
+    // Update stats (counts as completed)
+    const total = (seller.total_transactions ?? 0) + 1
+    const rate = (((seller.completion_rate ?? 0) * (seller.total_transactions ?? 0)) + 100) / total
+    await service.from('sellers').update({ total_transactions: total, completion_rate: Math.round(rate) }).eq('id', txn.seller_id)
+  }
+
+  // Notify buyer — they lost
+  const sendAmount = txn.send_amount ?? txn.from_amount
+  const sendCurrency = txn.send_currency ?? txn.from_currency
+  await createNotification(
+    txn.buyer_id,
+    `Dispute Outcome — ${ref}`,
+    `After reviewing your dispute for transaction ${ref}, we were unable to substantiate the claim. The funds (${sendAmount?.toLocaleString()} ${sendCurrency}) have been released to the exchanger.`,
+    'info'
+  )
+
+  // Log admin action
+  await logAdminAction(user.id, 'DISPUTE_RESOLVED_SELLER_WINS', 'transaction', transactionId, {
+    ref,
+    dispute_reason: txn.dispute_reason,
+  })
+
+  revalidatePath('/admin/disputes')
+  revalidatePath('/admin/transactions')
+  revalidatePath(`/admin/transactions/${transactionId}`)
+  return { success: true }
+}
+
+// ── DISPUTE: Save admin notes ─────────────────────────────────────────────────
+export async function opsUpdateDisputeNotes(transactionId: string, notes: string) {
+  const { user } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const service = createServiceClient()
+  const { data: profile } = await service.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Admin access required' }
+
+  const { error } = await service
+    .from('transactions')
+    .update({ dispute_notes: notes })
+    .eq('id', transactionId)
+
+  if (error) {
+    // Column may not exist yet — fail gracefully
+    return { error: 'Failed to save notes (ensure dispute_notes column exists in transactions table)' }
+  }
+
+  await logAdminAction(user.id, 'DISPUTE_NOTES_UPDATED', 'transaction', transactionId, { notes })
+  revalidatePath(`/admin/transactions/${transactionId}`)
+  return { success: true }
 }

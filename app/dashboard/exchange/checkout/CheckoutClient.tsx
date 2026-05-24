@@ -7,6 +7,65 @@ import {
   CheckCircle2, AlertCircle, User, Smartphone
 } from 'lucide-react'
 import { initiateExchange } from '@/actions/exchange'
+import { useI18n } from '@/lib/i18n-context'
+
+const PHONE_META: Record<string, { code: string; digits: number; placeholder: string }> = {
+  'Ghana':                { code: '+233', digits: 9,  placeholder: '024 123 4567' },
+  'Nigeria':              { code: '+234', digits: 10, placeholder: '080 1234 5678' },
+  'Senegal':              { code: '+221', digits: 9,  placeholder: '077 123 4567' },
+  'Mali':                 { code: '+223', digits: 8,  placeholder: '76 12 34 56' },
+  'Burkina Faso':         { code: '+226', digits: 8,  placeholder: '70 12 34 56' },
+  'Togo':                 { code: '+228', digits: 8,  placeholder: '90 12 34 56' },
+  'Benin':                { code: '+229', digits: 8,  placeholder: '97 12 34 56' },
+  'Niger':                { code: '+227', digits: 8,  placeholder: '90 12 34 56' },
+  "Côte d'Ivoire":        { code: '+225', digits: 10, placeholder: '07 12 34 56 78' },
+  'Guinea-Bissau':        { code: '+245', digits: 7,  placeholder: '955 1234' },
+  'Cameroon':             { code: '+237', digits: 9,  placeholder: '6 71 23 45 67' },
+  'Chad':                 { code: '+235', digits: 8,  placeholder: '63 12 34 56' },
+  'Gabon':                { code: '+241', digits: 7,  placeholder: '06 12 34 56' },
+  'Republic of Congo':    { code: '+242', digits: 9,  placeholder: '06 123 4567' },
+  'Central African Rep.': { code: '+236', digits: 8,  placeholder: '75 12 34 56' },
+  'Equatorial Guinea':    { code: '+240', digits: 9,  placeholder: '222 123 456' },
+  'Kenya':                { code: '+254', digits: 9,  placeholder: '0712 345 678' },
+  'Uganda':               { code: '+256', digits: 9,  placeholder: '0712 345 678' },
+  'Tanzania':             { code: '+255', digits: 9,  placeholder: '0712 345 678' },
+  'South Africa':         { code: '+27',  digits: 9,  placeholder: '071 234 5678' },
+  'United Kingdom':       { code: '+44',  digits: 10, placeholder: '07700 900000' },
+  'France':               { code: '+33',  digits: 9,  placeholder: '06 12 34 56 78' },
+  'United States':        { code: '+1',   digits: 10, placeholder: '(555) 123-4567' },
+  'Canada':               { code: '+1',   digits: 10, placeholder: '(555) 123-4567' },
+}
+
+function PhoneField({ label, country, value, onChange }: {
+  label: string; country: string; value: string; onChange: (v: string) => void
+}) {
+  const meta = PHONE_META[country]
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+        <Smartphone size={12} className="inline mr-1" />
+        {label}
+      </label>
+      <div className="flex">
+        {meta?.code && (
+          <span className="inline-flex items-center px-3 py-2.5 rounded-l-xl border border-r-0 border-gray-200 bg-gray-50 text-xs font-bold text-gray-600 whitespace-nowrap flex-shrink-0 select-none">
+            {meta.code}
+          </span>
+        )}
+        <input
+          type="tel"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={meta?.placeholder ?? 'Phone number'}
+          className={`flex-1 px-4 py-2.5 text-sm text-gray-900 border border-gray-200 focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10 transition-all ${meta?.code ? 'rounded-r-xl' : 'rounded-xl'}`}
+        />
+      </div>
+      {meta && (
+        <p className="text-gray-400 text-[10px] mt-1 pl-1">{country} · {meta.code} · {meta.digits} digits required</p>
+      )}
+    </div>
+  )
+}
 
 interface Props {
   offer: any
@@ -15,6 +74,8 @@ interface Props {
   destinationCountry: string
   feePercent: number
   rateLockSeconds: number
+  sendPhone?: string
+  receivePhone?: string
   userProfile: {
     sendAccount: string
     receiveAccount: string
@@ -29,13 +90,16 @@ export default function CheckoutClient({
   destinationCountry,
   feePercent,
   rateLockSeconds,
+  sendPhone = '',
+  receivePhone = '',
   userProfile,
 }: Props) {
   const router = useRouter()
+  const { t } = useI18n()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [sendAccount, setSendAccount] = useState(userProfile.sendAccount)
-  const [receiveAccount, setReceiveAccount] = useState(userProfile.receiveAccount)
+  const [sendAccount, setSendAccount] = useState(sendPhone || userProfile.sendAccount)
+  const [receiveAccount, setReceiveAccount] = useState(receivePhone || userProfile.receiveAccount)
   const [receiveProvider, setReceiveProvider] = useState('')
 
   // Calculate amounts
@@ -46,7 +110,7 @@ export default function CheckoutClient({
 
   const seller = offer.sellers
   const sellerProfile = seller?.profiles
-  const sellerName = sellerProfile?.full_name ?? 'Exchanger'
+  const sellerName = sellerProfile?.full_name ?? "Exchanger"
   const completion = seller?.completion_rate ?? 0
   const isVerified = completion >= 90 && (seller?.total_transactions ?? 0) >= 5
 
@@ -121,7 +185,7 @@ export default function CheckoutClient({
         onClick={() => router.back()}
         className="flex items-center gap-1.5 text-gray-500 text-sm hover:text-gray-700 transition-colors"
       >
-        <ChevronLeft size={16} /> Back to exchangers
+        <ChevronLeft size={16} /> {t("back_to_exchangers")}
       </button>
 
       {/* Main checkout card */}
@@ -132,16 +196,21 @@ export default function CheckoutClient({
             <Lock size={16} className="text-white/80" />
             <h1 className="text-white font-bold text-base sm:text-lg">HOXA Protected Exchange</h1>
           </div>
-          <p className="text-white/50 text-xs">Review your exchange details before confirming</p>
+          <p className="text-white/50 text-xs">{t("checkout_subtitle")}</p>
         </div>
 
         <div className="p-4 sm:p-6 space-y-5">
           {/* You receive */}
           <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-            <p className="text-xs text-green-600 font-medium mb-1">You receive</p>
+            <p className="text-xs text-green-600 font-medium mb-1">
+              They receive{destinationCountry ? ` in ${destinationCountry}` : ''}
+            </p>
             <p className="text-2xl font-bold text-green-700">
               {offer.to_currency} {receiveAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
+            {offer.from_currency === offer.to_currency && (
+              <p className="text-xs text-green-600 mt-1">Same currency · different country transfer</p>
+            )}
           </div>
 
           {/* Exchange details */}
@@ -185,32 +254,18 @@ export default function CheckoutClient({
 
           {/* Account inputs */}
           <div className="space-y-3 pt-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                <Smartphone size={12} className="inline mr-1" />
-                Your {offer.from_currency} account (send from)
-              </label>
-              <input
-                type="text"
-                value={sendAccount}
-                onChange={e => setSendAccount(e.target.value)}
-                placeholder="e.g. 0241234567"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                <Smartphone size={12} className="inline mr-1" />
-                Your {offer.to_currency} account (receive to)
-              </label>
-              <input
-                type="text"
-                value={receiveAccount}
-                onChange={e => setReceiveAccount(e.target.value)}
-                placeholder="e.g. 0712345678"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-[#177945] focus:ring-2 focus:ring-[#177945]/10"
-              />
-            </div>
+            <PhoneField
+              label={`Your send number · ${corridor?.send_country ?? offer.from_currency}`}
+              country={corridor?.send_country ?? ''}
+              value={sendAccount}
+              onChange={setSendAccount}
+            />
+            <PhoneField
+              label={`Recipient number · ${destinationCountry || corridor?.receive_country || offer.to_currency}`}
+              country={destinationCountry || corridor?.receive_country || ''}
+              value={receiveAccount}
+              onChange={setReceiveAccount}
+            />
           </div>
 
           {/* Rate lock countdown */}
