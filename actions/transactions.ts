@@ -81,12 +81,42 @@ export async function acceptTransaction(transactionId: string) {
   if (!['pending_seller', 'pending_acceptance'].includes(txn.status)) return { error: 'Transaction is no longer pending' }
 
   // V5.1: acceptance moves transaction to awaiting_payment (buyer can now pay)
+  const acceptedAt = new Date()
   const { error } = await supabase
     .from('transactions')
-    .update({ status: 'awaiting_payment' })
+    .update({ status: 'awaiting_payment', accepted_at: acceptedAt.toISOString() })
     .eq('id', transactionId)
 
   if (error) return { error: 'Failed to accept transaction' }
+
+  // Update seller's rolling average response time (last 20 accepted transactions)
+  try {
+    const service = createServiceClient()
+    const createdAt = new Date(txn.created_at)
+    const responseSeconds = Math.round((acceptedAt.getTime() - createdAt.getTime()) / 1000)
+
+    const { data: recentTxns } = await service
+      .from('transactions')
+      .select('created_at, accepted_at')
+      .eq('seller_id', txn.seller_id)
+      .eq('status', 'awaiting_payment')
+      .not('accepted_at', 'is', null)
+      .order('accepted_at', { ascending: false })
+      .limit(19) // + current one = 20
+
+    const samples: number[] = [responseSeconds]
+    for (const t of recentTxns ?? []) {
+      if (t.accepted_at && t.created_at) {
+        samples.push(Math.round((new Date(t.accepted_at).getTime() - new Date(t.created_at).getTime()) / 1000))
+      }
+    }
+    const avg = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length)
+
+    await service
+      .from('sellers')
+      .update({ avg_response_seconds: avg })
+      .eq('id', txn.seller_id)
+  } catch { /* non-fatal — don't block acceptance */ }
 
   // Notify buyer that seller accepted and they can now pay
   await createNotification(

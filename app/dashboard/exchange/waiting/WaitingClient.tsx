@@ -47,6 +47,27 @@ export default function WaitingClient({ transaction }: Props) {
   const txRef = transaction.hoxa_transaction_id ?? ''
   const sellerName = transaction.sellers?.profiles?.full_name ?? 'Exchanger'
 
+  // Seller ETA
+  const avgSeconds: number | null = transaction.sellers?.avg_response_seconds ?? null
+  function formatETA(s: number): string {
+    if (s < 60) return 'under a minute'
+    if (s < 3600) {
+      const m = Math.round(s / 60)
+      return `about ${m} minute${m !== 1 ? 's' : ''}`
+    }
+    const h = Math.round(s / 3600)
+    return `about ${h} hour${h !== 1 ? 's' : ''}`
+  }
+
+  // Step timestamps
+  function fmtTime(iso: string | null | undefined): string | null {
+    if (!iso) return null
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  const acceptedTime = fmtTime(transaction.accepted_at)
+  const confirmedTime = fmtTime(transaction.payment_confirmed_at)
+  const sentTime = fmtTime(transaction.fulfillment_started_at)
+
   const stage = getStage(status)
 
   // Poll for status changes every 8 seconds; trigger timeout check when deadline passes
@@ -83,7 +104,10 @@ export default function WaitingClient({ transaction }: Props) {
     {
       key: 'acceptance',
       label: 'Exchanger accepts your request',
-      sub: 'Usually within a few minutes',
+      sub: avgSeconds && avgSeconds > 0
+        ? `${sellerName} typically responds in ${formatETA(avgSeconds)}`
+        : 'Usually within a few minutes',
+      timestamp: acceptedTime,
       active: stage === 'waiting_acceptance',
       done: stage !== 'waiting_acceptance',
     },
@@ -91,6 +115,7 @@ export default function WaitingClient({ transaction }: Props) {
       key: 'payment',
       label: 'You pay & HOXA verifies',
       sub: 'Send the exact amount via your chosen method — our team confirms receipt',
+      timestamp: confirmedTime,
       active: ['confirming', 'confirmed'].includes(stage),
       done: ['sending', 'confirm_receipt'].includes(stage),
     },
@@ -98,6 +123,7 @@ export default function WaitingClient({ transaction }: Props) {
       key: 'receipt',
       label: `Funds sent & you confirm receipt`,
       sub: `Exchanger sends your ${receiveCurrency} — you confirm you got it to complete the exchange`,
+      timestamp: sentTime,
       active: stage === 'sending' || stage === 'confirm_receipt',
       done: false,
     },
@@ -154,15 +180,20 @@ export default function WaitingClient({ transaction }: Props) {
                   )}
                 </div>
 
-                {/* Step label + sub */}
+                {/* Step label + sub + timestamp */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium leading-tight ${
-                    step.done ? 'text-green-600 line-through' :
-                    step.active ? 'text-gray-900 font-semibold' :
-                    'text-gray-400'
-                  }`}>
-                    {step.label}
-                  </p>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className={`text-sm font-medium leading-tight ${
+                      step.done ? 'text-green-600' :
+                      step.active ? 'text-gray-900 font-semibold' :
+                      'text-gray-400'
+                    }`}>
+                      {step.label}
+                    </p>
+                    {step.done && step.timestamp && (
+                      <span className="text-[10px] text-green-500 font-mono flex-shrink-0">{step.timestamp}</span>
+                    )}
+                  </div>
                   {(step.active || (!step.done && i === steps.findIndex(s => !s.done))) && (
                     <p className="text-xs text-gray-400 mt-0.5">{step.sub}</p>
                   )}
@@ -182,12 +213,23 @@ export default function WaitingClient({ transaction }: Props) {
             </div>
           </div>
 
-          {/* Typical wait time */}
+          {/* Seller ETA / Typical wait time */}
           <div className="bg-[#F7F9F8] rounded-xl p-4 flex items-center gap-3">
             <Clock size={16} className="text-gray-400 flex-shrink-0" />
             <div>
-              <p className="text-sm text-gray-700 font-medium">Typical wait: 5–10 minutes</p>
-              <p className="text-xs text-gray-400">during operating hours</p>
+              {avgSeconds && avgSeconds > 0 ? (
+                <>
+                  <p className="text-sm text-gray-700 font-medium">
+                    {sellerName} typically responds in {formatETA(avgSeconds)}
+                  </p>
+                  <p className="text-xs text-gray-400">based on their recent exchanges</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-700 font-medium">Typical wait: 5–10 minutes</p>
+                  <p className="text-xs text-gray-400">during operating hours</p>
+                </>
+              )}
             </div>
           </div>
 

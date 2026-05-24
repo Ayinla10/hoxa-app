@@ -16,7 +16,7 @@ export default async function WaitingPage({ searchParams }: Props) {
 
   const { data: txn } = await supabase
     .from('transactions')
-    .select('*, sellers(profiles(full_name))')
+    .select('*, accepted_at, payment_confirmed_at, fulfillment_started_at, sellers(avg_response_seconds, profiles(full_name))')
     .eq('id', txId)
     .eq('buyer_id', user.id)
     .single()

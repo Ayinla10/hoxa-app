@@ -170,6 +170,7 @@ alter table sellers add column if not exists supported_corridors uuid[] not null
 alter table sellers add column if not exists supported_receive_countries text[] not null default '{}';
 alter table sellers add column if not exists admin_availability_override text
   check (admin_availability_override in ('available','offline'));
+alter table sellers add column if not exists avg_response_seconds integer;
 
 -- ── TRANSACTIONS — complete v5.1 state machine ──
 -- First drop the old status check constraint
@@ -214,7 +215,9 @@ alter table transactions add column if not exists rate_locked_at timestamptz;
 alter table transactions add column if not exists rate_expires_at timestamptz;
 alter table transactions add column if not exists ive_paid_tapped_at timestamptz;
 alter table transactions add column if not exists payment_window_expires_at timestamptz;
+alter table transactions add column if not exists accepted_at timestamptz;
 alter table transactions add column if not exists payment_confirmed_at timestamptz;
+alter table transactions add column if not exists fulfillment_started_at timestamptz;
 alter table transactions add column if not exists fulfillment_notified_at timestamptz;
 alter table transactions add column if not exists fulfillment_confirmed_at timestamptz;
 alter table transactions add column if not exists receipt_confirmed_at timestamptz;
