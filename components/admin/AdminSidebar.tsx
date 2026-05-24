@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ArrowLeftRight, CreditCard, Users, Store,
   Settings, LogOut, ChevronRight, AlertTriangle, Banknote,
-  BarChart2, Bell, Shield, Globe, Activity
+  BarChart2, Bell, Shield, Globe, Activity, Trash2
 } from 'lucide-react'
 
 const nav = [
@@ -31,7 +31,7 @@ const groups = [
   { key: 'system', label: 'System' },
 ]
 
-export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSettlement = 0 }: { adminName: string; pendingEscrow?: number; pendingSettlement?: number }) {
+export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSettlement = 0, isSuperAdmin = false }: { adminName: string; pendingEscrow?: number; pendingSettlement?: number; isSuperAdmin?: boolean }) {
   const pathname = usePathname()
 
   async function logout() {
@@ -98,10 +98,16 @@ export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSett
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-gray-900 text-xs font-semibold truncate">{adminName}</p>
-            <p className="text-gray-400 text-[10px]">Super Admin</p>
+            <p className="text-gray-400 text-[10px]">{isSuperAdmin ? 'Super Admin' : 'Admin'}</p>
           </div>
           <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] flex-shrink-0" />
         </div>
+        {isSuperAdmin && (
+          <Link href="/admin/reset"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 text-xs font-medium transition-colors mb-0.5">
+            <Trash2 size={14} /> Platform Reset
+          </Link>
+        )}
         <button onClick={logout}
           className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 text-xs font-medium transition-colors">
           <LogOut size={14} /> Sign out

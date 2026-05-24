@@ -172,6 +172,11 @@ alter table sellers add column if not exists admin_availability_override text
   check (admin_availability_override in ('available','offline'));
 alter table sellers add column if not exists avg_response_seconds integer;
 
+-- Allow super_admin role on profiles
+alter table profiles drop constraint if exists profiles_role_check;
+alter table profiles add constraint profiles_role_check
+  check (role in ('buyer', 'seller', 'admin', 'super_admin'));
+
 -- ── TRANSACTIONS — complete v5.1 state machine ──
 -- First drop the old status check constraint
 alter table transactions drop constraint if exists transactions_status_check;
