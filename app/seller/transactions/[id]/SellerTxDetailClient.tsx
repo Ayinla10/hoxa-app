@@ -9,6 +9,7 @@ import {
   ArrowRight, ShieldCheck, XCircle,
 } from 'lucide-react'
 import { sellerMarkFulfilled } from '@/actions/exchange'
+import RatingWidget from '@/components/buyer/RatingWidget'
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   pending_acceptance:           { label: 'Pending Acceptance',     color: 'text-amber-700',  bg: 'bg-amber-50',  border: 'border-amber-200' },
@@ -28,9 +29,11 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; bor
 interface Props {
   tx: any
   sellerUserId: string
+  buyerUserId?: string | null
+  existingRatingScore?: number | null
 }
 
-export default function SellerTxDetailClient({ tx, sellerUserId }: Props) {
+export default function SellerTxDetailClient({ tx, sellerUserId, buyerUserId, existingRatingScore }: Props) {
   const router = useRouter()
   const [fulfilling, setFulfilling] = useState(false)
   const [error, setError] = useState('')
@@ -208,6 +211,19 @@ export default function SellerTxDetailClient({ tx, sellerUserId }: Props) {
           <TimelineItem icon={XCircle} label={tx.status === 'seller_rejected' ? 'Rejected by you' : 'Timed out'} value={fmt(tx.updated_at)} active={false} danger />
         )}
       </div>
+
+      {/* Seller rates the buyer — only when completed */}
+      {isComplete && buyerUserId && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <RatingWidget
+            transactionId={tx.id}
+            rateeId={buyerUserId}
+            role="seller"
+            rateeName={buyer?.full_name ?? 'Buyer'}
+            existingScore={existingRatingScore}
+          />
+        </div>
+      )}
     </div>
   )
 }

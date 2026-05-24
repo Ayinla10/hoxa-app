@@ -166,8 +166,10 @@ export default function CheckoutClient({
         return
       }
 
-      // V5.1: if auto-accepted go straight to payment, else wait for seller acceptance
-      if (result.autoAccepted) {
+      // V5.1: queued (off-hours), auto-accepted, or waiting for seller
+      if (result.queued) {
+        router.push(`/dashboard/exchange/waiting?tx=${result.transactionId}`)
+      } else if (result.autoAccepted) {
         router.push(`/dashboard/exchange/payment-method?tx=${result.transactionId}`)
       } else {
         router.push(`/dashboard/exchange/waiting?tx=${result.transactionId}`)

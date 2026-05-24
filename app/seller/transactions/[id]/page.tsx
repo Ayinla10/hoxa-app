@@ -22,19 +22,29 @@ export default async function SellerTransactionDetailPage({ params }: { params: 
 
   if (!seller) redirect('/dashboard')
 
-  const { data: tx } = await supabase
-    .from('transactions')
-    .select(`
-      *,
-      profiles!buyer_id(full_name, country, phone)
-    `)
-    .eq('id', id)
-    .eq('seller_id', seller.id)
-    .single()
+  const [{ data: tx }, ratingResult] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select(`
+        *,
+        profiles!buyer_id(id, full_name, country, phone)
+      `)
+      .eq('id', id)
+      .eq('seller_id', seller.id)
+      .single(),
+    supabase
+      .from('ratings')
+      .select('score')
+      .eq('transaction_id', id)
+      .eq('rater_id', user.id)
+      .maybeSingle(),
+  ])
 
   if (!tx) redirect('/seller/transactions')
 
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
+  const buyerUserId: string | null = (tx.profiles as any)?.id ?? tx.buyer_id ?? null
+  const existingRatingScore: number | null = ratingResult.data?.score ?? null
 
   return (
     <>
@@ -44,7 +54,12 @@ export default async function SellerTransactionDetailPage({ params }: { params: 
         notifCount={notifResult.data?.length ?? 0}
       />
       <main className="px-4 lg:px-8 py-5 max-w-3xl">
-        <SellerTxDetailClient tx={tx} sellerUserId={user.id} />
+        <SellerTxDetailClient
+          tx={tx}
+          sellerUserId={user.id}
+          buyerUserId={buyerUserId}
+          existingRatingScore={existingRatingScore}
+        />
       </main>
     </>
   )

@@ -20,6 +20,7 @@ const TERMINAL_STATUSES = ['seller_rejected', 'seller_timeout', 'cancelled', 'ex
 
 function getStage(status: string): Stage {
   switch (status) {
+    case 'queued':
     case 'pending_acceptance':
     case 'pending_seller':        return 'waiting_acceptance'
     case 'pending_ops_confirmation': return 'confirming'
@@ -104,7 +105,9 @@ export default function WaitingClient({ transaction }: Props) {
     {
       key: 'acceptance',
       label: 'Exchanger accepts your request',
-      sub: avgSeconds && avgSeconds > 0
+      sub: status === 'queued'
+        ? 'HOXA is currently outside operating hours — your request will be processed when we open'
+        : avgSeconds && avgSeconds > 0
         ? `${sellerName} typically responds in ${formatETA(avgSeconds)}`
         : 'Usually within a few minutes',
       timestamp: acceptedTime,
@@ -130,6 +133,7 @@ export default function WaitingClient({ transaction }: Props) {
   ]
 
   const headingText =
+    status === 'queued' ? 'Your exchange is queued' :
     stage === 'waiting_acceptance' ? 'Waiting for exchanger to accept...' :
     stage === 'confirming' ? 'Confirming your payment...' :
     stage === 'confirmed' ? 'Payment confirmed!' :

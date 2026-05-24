@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import TransactionTracker from '@/components/buyer/TransactionTracker'
 import ReceiptConfirmationOverlay from '@/components/buyer/ReceiptConfirmationOverlay'
+import RatingWidget from '@/components/buyer/RatingWidget'
 import TransactionDetailClient from './TransactionDetailClient'
 import CurrencyFlag from '@/components/ui/CurrencyFlag'
 
@@ -18,14 +19,20 @@ export default async function TransactionDetailPage({ params }: { params: Promis
   const { user, supabase } = await getAuthUser()
   if (!user) redirect('/login')
 
-  const [txResult, settings] = await Promise.all([
+  const [txResult, settings, ratingResult] = await Promise.all([
     supabase
       .from('transactions')
-      .select('*, sellers(id, completion_rate, avg_response_seconds, total_transactions, profiles(full_name, country))')
+      .select('*, sellers(id, user_id, completion_rate, avg_response_seconds, total_transactions, profiles(full_name, country))')
       .eq('id', id)
       .eq('buyer_id', user.id)
       .single(),
     getSettings(),
+    supabase
+      .from('ratings')
+      .select('score')
+      .eq('transaction_id', id)
+      .eq('rater_id', user.id)
+      .maybeSingle(),
   ])
 
   const isTerminalStatus = (s: string) => ['seller_rejected', 'seller_timeout'].includes(s)
@@ -39,6 +46,8 @@ export default async function TransactionDetailPage({ params }: { params: Promis
   const seller = tx.sellers as any
   const sellerProfile = seller?.profiles
   const sellerName = sellerProfile?.full_name ?? 'Exchanger'
+  const sellerUserId: string | null = seller?.user_id ?? null
+  const existingRatingScore: number | null = ratingResult.data?.score ?? null
 
   // V5.1 field resolution with legacy fallbacks
   const sendAmount = tx.send_amount ?? tx.from_amount
@@ -278,6 +287,19 @@ export default async function TransactionDetailPage({ params }: { params: Promis
               </div>
             ))}
           </div>
+
+          {/* Rating */}
+          {sellerUserId && (
+            <div className="border-t border-gray-100 pt-4">
+              <RatingWidget
+                transactionId={tx.id}
+                rateeId={sellerUserId}
+                role="buyer"
+                rateeName={sellerName}
+                existingScore={existingRatingScore}
+              />
+            </div>
+          )}
 
           {/* Post-transaction actions */}
           <div className="flex flex-wrap gap-3">

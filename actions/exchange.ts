@@ -51,6 +51,63 @@ export async function initiateExchange(input: {
   const rateLockSeconds = Number(settings.rate_lock_duration_seconds ?? 600)
   const acceptTimeoutSeconds = Number(settings.seller_response_timeout_seconds ?? 120)
 
+  // ── Off-hours / queue mode check ──
+  const platformStatus = String(settings.platform_status ?? 'open').replace(/"/g, '')
+  const openHour = Number(settings.platform_open_hour ?? 7)
+  const closeHour = Number(settings.platform_close_hour ?? 22)
+  const queueModeEnabled = String(settings.queue_mode_enabled ?? 'true') === 'true'
+  const currentHour = new Date().getUTCHours() // platform timezone is Africa/Accra = UTC+0
+  const withinHours = currentHour >= openHour && currentHour < closeHour
+  const platformOpen = platformStatus === 'open' && withinHours
+
+  if (!platformOpen) {
+    if (!queueModeEnabled) {
+      return {
+        error: `HOXA is currently closed. We operate ${openHour}:00–${closeHour}:00 GMT. Please try again during operating hours.`
+      }
+    }
+    // Queue mode: create transaction as queued, skip auto-accept engine
+    const { data: queuedTxn, error: queueErr } = await service.from('transactions').insert({
+      buyer_id: user.id,
+      seller_id: offer.seller_id,
+      offer_id: input.offer_id,
+      send_amount: Math.round((input.send_amount + Math.round(input.send_amount * (feePercent / 100) * 100) / 100) * 100) / 100,
+      send_currency: offer.from_currency,
+      receive_amount: Math.round(input.send_amount * offer.rate * 100) / 100,
+      receive_currency: offer.to_currency,
+      exchange_rate: offer.rate,
+      hoxa_fee_amount: Math.round(input.send_amount * (feePercent / 100) * 100) / 100,
+      seller_settlement_amount: input.send_amount,
+      buyer_send_account: input.buyer_send_account,
+      buyer_send_provider: input.buyer_send_provider,
+      buyer_receive_account: input.buyer_receive_account,
+      buyer_receive_provider: input.buyer_receive_provider,
+      buyer_destination_country: input.buyer_destination_country,
+      rate_locked_at: now.toISOString(),
+      rate_expires_at: new Date(now.getTime() + rateLockSeconds * 1000).toISOString(),
+      status: 'queued',
+      from_currency: offer.from_currency,
+      to_currency: offer.to_currency,
+      from_amount: Math.round((input.send_amount + Math.round(input.send_amount * (feePercent / 100) * 100) / 100) * 100) / 100,
+      to_amount: Math.round(input.send_amount * offer.rate * 100) / 100,
+      rate: offer.rate,
+    }).select().single()
+
+    if (queueErr) {
+      console.error('[initiateExchange] Queue insert error:', queueErr.message)
+      return { error: 'Something went wrong. Please try again or contact support.' }
+    }
+
+    await createNotification(
+      user.id,
+      'Exchange Queued',
+      `Your exchange request has been queued. We'll process it when we open at ${openHour}:00 GMT.`,
+      'info'
+    )
+
+    return { success: true, transactionId: queuedTxn.id, queued: true }
+  }
+
   const feeAmount = Math.round(sendSubtotal * (feePercent / 100) * 100) / 100
   const totalPay = sendSubtotal + feeAmount
   const receiveAmount = Math.round(sendSubtotal * offer.rate * 100) / 100

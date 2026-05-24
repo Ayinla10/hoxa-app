@@ -517,3 +517,34 @@ insert into settings (key, value) values
   ('hoxa_buyer_fee_percent', '1'),
   ('platform_status', '"open"')
 on conflict (key) do nothing;
+
+-- ══════════════════════════════════════════════
+-- 8. RATINGS TABLE
+-- ══════════════════════════════════════════════
+
+create table if not exists ratings (
+  id uuid primary key default gen_random_uuid(),
+  transaction_id uuid not null references transactions(id) on delete cascade,
+  rater_id uuid not null references auth.users(id) on delete cascade,
+  ratee_id uuid not null references auth.users(id) on delete cascade,
+  role text not null check (role in ('buyer', 'seller')),
+  score integer not null check (score between 1 and 5),
+  comment text,
+  created_at timestamptz not null default now(),
+  unique (transaction_id, rater_id)
+);
+
+-- RLS
+alter table ratings enable row level security;
+drop policy if exists "Users can insert own ratings" on ratings;
+create policy "Users can insert own ratings" on ratings
+  for insert with check (auth.uid() = rater_id);
+drop policy if exists "Users can read ratings" on ratings;
+create policy "Users can read ratings" on ratings
+  for select using (true);
+
+-- Realtime
+do $$ begin
+  alter publication supabase_realtime add table ratings;
+exception when others then null;
+end $$;
