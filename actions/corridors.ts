@@ -106,3 +106,93 @@ export async function updateCorridor(id: string, input: Record<string, unknown>)
 export async function toggleCorridorActive(id: string, isActive: boolean) {
   return updateCorridor(id, { is_active: isActive })
 }
+
+// ── Collection Accounts CRUD ──
+
+export async function getCollectionAccounts() {
+  const { supabase } = await getAuthUser()
+  const { data } = await supabase
+    .from('hoxa_collection_accounts')
+    .select('*')
+    .order('currency', { ascending: true })
+    .order('created_at', { ascending: true })
+  return data ?? []
+}
+
+export async function createCollectionAccount(input: {
+  country: string
+  currency: string
+  provider: string
+  account_number: string
+  account_name: string
+}) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Admin access required' }
+
+  if (!input.country || !input.currency || !input.provider || !input.account_number || !input.account_name) {
+    return { error: 'All fields are required' }
+  }
+  input.account_number = input.account_number.slice(0, 100)
+  input.account_name   = input.account_name.slice(0, 100)
+  input.provider       = input.provider.slice(0, 80)
+
+  const { error } = await supabase.from('hoxa_collection_accounts').insert({ ...input, is_active: true })
+  if (error) return { error: error.message }
+  revalidatePath('/admin/corridors')
+  return { success: true }
+}
+
+export async function updateCollectionAccount(id: string, input: {
+  country: string
+  currency: string
+  provider: string
+  account_number: string
+  account_name: string
+}) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Admin access required' }
+
+  input.account_number = input.account_number.slice(0, 100)
+  input.account_name   = input.account_name.slice(0, 100)
+  input.provider       = input.provider.slice(0, 80)
+
+  const { error } = await supabase.from('hoxa_collection_accounts').update({ ...input, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/corridors')
+  return { success: true }
+}
+
+export async function toggleCollectionAccountActive(id: string, isActive: boolean) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Admin access required' }
+
+  const { error } = await supabase.from('hoxa_collection_accounts').update({ is_active: isActive, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/corridors')
+  return { success: true }
+}
+
+export async function deleteCollectionAccount(id: string) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Admin access required' }
+
+  // Unlink from any corridors first
+  await supabase.from('corridors').update({ collection_account_id: null }).eq('collection_account_id', id)
+
+  const { error } = await supabase.from('hoxa_collection_accounts').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin/corridors')
+  return { success: true }
+}

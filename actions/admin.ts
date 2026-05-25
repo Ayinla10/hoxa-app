@@ -147,6 +147,53 @@ export async function unbanUser(userId: string) {
   return { success: true }
 }
 
+export async function setFraudFlag(userId: string, flagged: boolean) {
+  const admin = await requireAdmin()
+  if (!admin) return { error: 'Admin access required' }
+
+  const service = createServiceClient()
+  const { error } = await service
+    .from('profiles')
+    .update({ fraud_flag: flagged })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/risk')
+  revalidatePath(`/admin/users/${userId}`)
+  return { success: true }
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const admin = await requireAdmin()
+  if (!admin) return { error: 'Admin access required' }
+
+  const service = createServiceClient()
+  const { error } = await service
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/alerts')
+  return { success: true }
+}
+
+export async function markAllNotificationsRead() {
+  const admin = await requireAdmin()
+  if (!admin) return { error: 'Admin access required' }
+
+  const service = createServiceClient()
+  const { error } = await service
+    .from('notifications')
+    .update({ read: true })
+    .eq('read', false)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin/alerts')
+  return { success: true }
+}
+
 export async function markRefundSent(transactionId: string, notes: string) {
   const admin = await requireAdmin()
   if (!admin) return { error: 'Admin access required' }

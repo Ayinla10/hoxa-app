@@ -1,10 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { sweepExpiredPaymentWindows } from '@/actions/exchange'
 import AdminTopbar from '@/components/admin/AdminTopbar'
+import { requireAdminPermission } from '@/lib/admin-guard'
 import Link from 'next/link'
 import { CreditCard, ArrowRight, Clock, CheckCircle2 } from 'lucide-react'
 
 export default async function AdminPaymentReviewPage() {
+  await requireAdminPermission('payment_review')
   // Non-blocking sweep: move expired payment windows back to awaiting_payment
   void sweepExpiredPaymentWindows()
 

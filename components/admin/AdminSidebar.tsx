@@ -8,21 +8,22 @@ import {
   Settings, LogOut, ChevronRight, AlertTriangle, Banknote,
   BarChart2, Bell, Shield, Globe, Activity, Trash2
 } from 'lucide-react'
+import { hasPermission, type AdminPermissionKey } from '@/lib/admin-permissions'
 
-const nav = [
-  { href: '/admin/dashboard',        icon: LayoutDashboard, label: 'Overview',            group: 'main',   badge: '' },
-  { href: '/admin/transactions',     icon: ArrowLeftRight,  label: 'Transactions',        group: 'main',   badge: '' },
-  { href: '/admin/payment-review',   icon: CreditCard,      label: 'Payment Review',      group: 'main',   badge: 'ops' },
-  { href: '/admin/settlement',       icon: Banknote,        label: 'Settlement',          group: 'main',   badge: 'settle' },
-  { href: '/admin/disputes',         icon: AlertTriangle,   label: 'Disputes',            group: 'main',   badge: '' },
-  { href: '/admin/corridors',        icon: Globe,           label: 'Corridors',           group: 'main',   badge: '' },
-  { href: '/admin/users',            icon: Users,           label: 'Users',               group: 'ops',    badge: '' },
-  { href: '/admin/sellers',          icon: Store,           label: 'Seller Applications', group: 'ops',    badge: '' },
-  { href: '/admin/risk',             icon: Shield,          label: 'Risk',                group: 'ops',    badge: '' },
-  { href: '/admin/alerts',           icon: Bell,            label: 'Alerts',              group: 'ops',    badge: '' },
-  { href: '/admin/analytics',        icon: BarChart2,       label: 'Analytics',           group: 'system', badge: '' },
-  { href: '/admin/activity',         icon: Activity,        label: 'Activity Log',        group: 'system', badge: '' },
-  { href: '/admin/settings',         icon: Settings,        label: 'Settings',            group: 'system', badge: '' },
+const nav: { href: string; icon: React.ElementType; label: string; group: string; badge: string; permission: AdminPermissionKey | null }[] = [
+  { href: '/admin/dashboard',        icon: LayoutDashboard, label: 'Overview',            group: 'main',   badge: '',       permission: null },
+  { href: '/admin/transactions',     icon: ArrowLeftRight,  label: 'Transactions',        group: 'main',   badge: '',       permission: 'transactions' },
+  { href: '/admin/payment-review',   icon: CreditCard,      label: 'Payment Review',      group: 'main',   badge: 'ops',    permission: 'payment_review' },
+  { href: '/admin/settlement',       icon: Banknote,        label: 'Settlement',          group: 'main',   badge: 'settle', permission: 'settlement' },
+  { href: '/admin/disputes',         icon: AlertTriangle,   label: 'Disputes',            group: 'main',   badge: '',       permission: 'disputes' },
+  { href: '/admin/corridors',        icon: Globe,           label: 'Corridors',           group: 'main',   badge: '',       permission: 'corridors' },
+  { href: '/admin/users',            icon: Users,           label: 'Users',               group: 'ops',    badge: '',       permission: 'users' },
+  { href: '/admin/sellers',          icon: Store,           label: 'Seller Applications', group: 'ops',    badge: '',       permission: 'sellers' },
+  { href: '/admin/risk',             icon: Shield,          label: 'Risk',                group: 'ops',    badge: '',       permission: 'risk' },
+  { href: '/admin/alerts',           icon: Bell,            label: 'Alerts',              group: 'ops',    badge: '',       permission: 'alerts' },
+  { href: '/admin/analytics',        icon: BarChart2,       label: 'Analytics',           group: 'system', badge: '',       permission: 'analytics' },
+  { href: '/admin/activity',         icon: Activity,        label: 'Activity Log',        group: 'system', badge: '',       permission: 'activity' },
+  { href: '/admin/settings',         icon: Settings,        label: 'Settings',            group: 'system', badge: '',       permission: 'settings' },
 ]
 
 const groups = [
@@ -31,7 +32,15 @@ const groups = [
   { key: 'system', label: 'System' },
 ]
 
-export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSettlement = 0, isSuperAdmin = false }: { adminName: string; pendingEscrow?: number; pendingSettlement?: number; isSuperAdmin?: boolean }) {
+interface Props {
+  adminName: string
+  pendingEscrow?: number
+  pendingSettlement?: number
+  permissions: string[]
+  isSuperAdmin?: boolean
+}
+
+export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSettlement = 0, permissions, isSuperAdmin = false }: Props) {
   const pathname = usePathname()
 
   async function logout() {
@@ -39,6 +48,11 @@ export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSett
     await createClient().auth.signOut()
     window.location.href = '/admin'
   }
+
+  // Filter nav items the admin has access to
+  const visibleNav = nav.filter(item =>
+    item.permission === null || hasPermission(permissions, item.permission)
+  )
 
   return (
     <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-white fixed top-0 left-0 z-30 border-r border-gray-200 shadow-sm">
@@ -51,7 +65,8 @@ export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSett
 
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-5">
         {groups.map(group => {
-          const items = nav.filter(n => n.group === group.key)
+          const items = visibleNav.filter(n => n.group === group.key)
+          if (items.length === 0) return null
           return (
             <div key={group.key}>
               <p className="px-3 mb-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">{group.label}</p>
@@ -102,7 +117,7 @@ export default function AdminSidebar({ adminName, pendingEscrow = 0, pendingSett
           </div>
           <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] flex-shrink-0" />
         </div>
-        {isSuperAdmin && (
+        {hasPermission(permissions, 'reset') && (
           <Link href="/admin/reset"
             className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 text-xs font-medium transition-colors mb-0.5">
             <Trash2 size={14} /> Platform Reset

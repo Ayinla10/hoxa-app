@@ -16,11 +16,11 @@ export default async function PaymentPage({ searchParams }: Props) {
   const { user, supabase } = await getAuthUser()
   if (!user) redirect('/login')
 
-  // Fetch transaction, payment provider, and collection account in parallel
+  // Fetch transaction + corridor's collection account + optional payment provider in parallel
   const [txResult, providerResult] = await Promise.all([
     supabase
       .from('transactions')
-      .select('*, sellers(profiles(full_name))')
+      .select('*, sellers(profiles(full_name)), corridors(hoxa_collection_accounts(*))')
       .eq('id', txId)
       .eq('buyer_id', user.id)
       .single(),
@@ -38,11 +38,11 @@ export default async function PaymentPage({ searchParams }: Props) {
   }
 
   const provider = providerResult.data
-  const sendCountry = txn.send_currency === 'GHS' ? 'GH' : txn.send_currency === 'XOF' ? 'CI' : 'GH'
   const sendCurrency = txn.send_currency ?? txn.from_currency
 
-  // Get HOXA collection account for this currency
-  const collectionAccount = await getCollectionAccount(sendCountry, sendCurrency)
+  // Prefer collection account linked to the corridor; fall back to currency/country lookup
+  const corridorAccount = (txn as any).corridors?.hoxa_collection_accounts ?? null
+  const collectionAccount = corridorAccount ?? await getCollectionAccount('', sendCurrency)
 
   return (
     <PaymentInstructionClient

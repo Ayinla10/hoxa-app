@@ -7,8 +7,11 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import {
   Globe, Zap, Loader2, Clock,
   CheckCircle2, AlertCircle, ChevronDown, Lock, Eye, EyeOff,
+  Banknote, Plus, Trash2, Star,
 } from 'lucide-react'
-import { updateAutoAcceptRules, updateAvailabilitySchedule } from '@/actions/listings'
+import { updateAutoAcceptRules, updateAvailabilitySchedule, saveSettlementAccounts, type PayoutAccount } from '@/actions/listings'
+import { CURRENCY_META } from '@/lib/currency-meta'
+import CurrencySelect from '@/components/ui/CurrencySelect'
 import { createClient } from '@/lib/supabase/client'
 import BackButton from '@/components/ui/BackButton'
 
@@ -33,10 +36,11 @@ interface Props {
   autoAcceptMaxAmount: number | null
   weeklyHours: Record<string, { open: string; close: string; enabled: boolean }> | null
   timezone: string
+  settlementAccounts: PayoutAccount[]
 }
 
 export default function SellerSettingsClient({
-  autoAcceptEnabled, autoAcceptMaxAmount, weeklyHours, timezone,
+  autoAcceptEnabled, autoAcceptMaxAmount, weeklyHours, timezone, settlementAccounts,
 }: Props) {
   const { t } = useI18n()
   const router = useRouter()
@@ -235,6 +239,9 @@ export default function SellerSettingsClient({
         </button>
       </div>
 
+      {/* Payout accounts */}
+      <PayoutAccountsCard initialAccounts={settlementAccounts} />
+
       {/* Language */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
@@ -251,6 +258,209 @@ export default function SellerSettingsClient({
 
       {/* Change password */}
       <ChangePasswordCard />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────
+// Payout accounts
+// ─────────────────────────────────────────
+
+const PAYOUT_PROVIDERS = ['MTN Mobile Money', 'Orange Money', 'Wave', 'Moov Money', 'Airtel Money', 'M-Pesa', 'Bank Transfer', 'Other']
+
+function emptyAccount(): PayoutAccount {
+  return {
+    id: crypto.randomUUID(),
+    provider: '',
+    account_number: '',
+    account_name: '',
+    currency: '',
+    country: '',
+    is_primary: false,
+  }
+}
+
+function PayoutAccountsCard({ initialAccounts }: { initialAccounts: PayoutAccount[] }) {
+  const [accounts, setAccounts] = useState<PayoutAccount[]>(initialAccounts)
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState<PayoutAccount>(emptyAccount())
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  function flash(type: 'success' | 'error', text: string) {
+    setMsg({ type, text })
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  function setPrimary(id: string) {
+    setAccounts(prev => prev.map(a => ({ ...a, is_primary: a.id === id })))
+  }
+
+  function removeAccount(id: string) {
+    setAccounts(prev => {
+      const next = prev.filter(a => a.id !== id)
+      if (next.length > 0 && !next.some(a => a.is_primary)) next[0].is_primary = true
+      return next
+    })
+  }
+
+  function startAdd() {
+    setDraft(emptyAccount())
+    setAdding(true)
+  }
+
+  function confirmAdd() {
+    if (!draft.provider || !draft.account_number || !draft.account_name || !draft.currency) return
+    const isPrimary = accounts.length === 0
+    const newAcc = { ...draft, is_primary: isPrimary }
+    setAccounts(prev => [...prev, newAcc])
+    setAdding(false)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    const res = await saveSettlementAccounts(accounts)
+    if (res?.error) flash('error', res.error)
+    else flash('success', 'Payout accounts saved.')
+    setSaving(false)
+  }
+
+  const currencyCountry = (code: string) => CURRENCY_META[code]?.country ?? ''
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+          <Banknote size={16} className="text-green-600" />
+        </div>
+        <div className="flex-1">
+          <h2 className="font-semibold text-gray-900">Payout Accounts</h2>
+          <p className="text-gray-400 text-xs mt-0.5">Where you receive your settlement after each completed exchange</p>
+        </div>
+      </div>
+
+      {accounts.length === 0 && !adding && (
+        <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <Banknote size={24} className="text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-400 text-sm font-medium">No payout accounts yet</p>
+          <p className="text-gray-300 text-xs mt-0.5">Add at least one so you can receive settlement</p>
+        </div>
+      )}
+
+      {/* Existing accounts */}
+      {accounts.length > 0 && (
+        <div className="space-y-2">
+          {accounts.map(a => (
+            <div key={a.id} className={`flex items-start justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${a.is_primary ? 'border-[#18824a]/40 bg-[#18824a]/5' : 'border-gray-100 bg-gray-50'}`}>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-gray-900">{a.account_name}</p>
+                  {a.is_primary && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-[#18824a] bg-[#18824a]/10 px-1.5 py-0.5 rounded-full">
+                      <Star size={9} fill="currentColor" /> Primary
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{a.provider} · <span className="font-mono">{a.account_number}</span></p>
+                <p className="text-xs text-gray-400 mt-0.5">{a.currency} · {a.country}</p>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {!a.is_primary && (
+                  <button onClick={() => setPrimary(a.id)} className="text-xs text-gray-400 hover:text-[#18824a] px-2 py-1 rounded-lg hover:bg-[#18824a]/5 transition-colors">
+                    Set primary
+                  </button>
+                )}
+                <button onClick={() => removeAccount(a.id)} className="p-1.5 rounded-lg text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add form */}
+      {adding && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-gray-700">New payout account</p>
+
+          {/* Currency */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Currency you receive</label>
+            <CurrencySelect
+              value={draft.currency}
+              onChange={c => setDraft(d => ({ ...d, currency: c, country: currencyCountry(c) }))}
+              placeholder="Select currency..."
+            />
+          </div>
+
+          {/* Provider */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Provider</label>
+            <div className="flex flex-wrap gap-1.5">
+              {PAYOUT_PROVIDERS.map(p => (
+                <button key={p} type="button"
+                  onClick={() => setDraft(d => ({ ...d, provider: p }))}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${draft.provider === p ? 'bg-[#18824a] text-white border-[#18824a]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#18824a]/40'}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Account number */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Account number / phone</label>
+            <input
+              type="text" value={draft.account_number}
+              onChange={e => setDraft(d => ({ ...d, account_number: e.target.value }))}
+              placeholder="e.g. 0241234567"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm font-mono text-gray-900 focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10"
+            />
+          </div>
+
+          {/* Account name */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Account name</label>
+            <input
+              type="text" value={draft.account_name}
+              onChange={e => setDraft(d => ({ ...d, account_name: e.target.value }))}
+              placeholder="Your full name as on the account"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => setAdding(false)}
+              className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-100 transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={confirmAdd}
+              disabled={!draft.provider || !draft.account_number || !draft.account_name || !draft.currency}
+              className="flex-1 py-2 rounded-xl bg-[#18824a] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40">
+              Add Account
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!adding && (
+        <button onClick={startAdd}
+          className="flex items-center gap-2 text-sm text-[#18824a] font-medium hover:underline">
+          <Plus size={14} /> Add payout account
+        </button>
+      )}
+
+      {msg && <FeedbackMsg msg={msg} />}
+
+      {accounts.length > 0 && (
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#18824a] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          {saving ? <><Loader2 size={13} className="animate-spin" /> Saving…</> : <><Banknote size={13} /> Save Payout Accounts</>}
+        </button>
+      )}
     </div>
   )
 }
@@ -341,6 +551,7 @@ function PasswordField({ label, value, onChange, show, onToggle, placeholder }: 
     </div>
   )
 }
+
 
 function FeedbackMsg({ msg }: { msg: { type: 'success' | 'error'; text: string; section?: string } }) {
   return (

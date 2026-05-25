@@ -3,8 +3,10 @@ import AdminTopbar from '@/components/admin/AdminTopbar'
 import SellerApplicationRow from './SellerApplicationRow'
 import SellerOverrideButton from './SellerOverrideButton'
 import { ShieldCheck, Store, XCircle, Wifi, WifiOff } from 'lucide-react'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 export default async function AdminSellersPage() {
+  await requireAdminPermission('sellers')
   const supabase = createServiceClient()
 
   const { data: applications } = await supabase

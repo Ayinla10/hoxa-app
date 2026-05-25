@@ -7,6 +7,7 @@ import SessionGuard from '@/components/SessionGuard'
 import RealtimeNotificationProvider from '@/components/RealtimeNotificationProvider'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
 import { getSettings } from '@/actions/settings'
+import { isSuperAdmin } from '@/lib/admin-permissions'
 
 export const metadata: Metadata = {
   title: 'HOXA Admin',
@@ -30,18 +31,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     await supabase.auth.signOut()
     redirect('/admin')
   }
-  if (profile.role !== 'admin' && profile.role !== 'super_admin') redirect('/dashboard')
+  if (profile.role !== 'admin') redirect('/dashboard')
 
   const sessionTimeout = Number(settings['session_timeout_minutes']) || 15
-  const isSuperAdmin = profile.role === 'super_admin'
+  const permissions: string[] = (profile.admin_permissions as string[]) ?? []
+  const superAdmin = isSuperAdmin(permissions)
 
   return (
     <div className="min-h-screen bg-[#F7F9F8]">
-      <AdminSidebar adminName={profile?.full_name ?? 'Admin'} pendingEscrow={pendingResult.count ?? 0} pendingSettlement={pendingSettlementResult.count ?? 0} isSuperAdmin={isSuperAdmin} />
+      <AdminSidebar
+        adminName={profile?.full_name ?? 'Admin'}
+        pendingEscrow={pendingResult.count ?? 0}
+        pendingSettlement={pendingSettlementResult.count ?? 0}
+        permissions={permissions}
+        isSuperAdmin={superAdmin}
+      />
       <div className="lg:pl-64 pb-20 lg:pb-0">
         {children}
       </div>
-      <AdminBottomNav />
+      <AdminBottomNav permissions={permissions} />
       <SessionGuard timeoutMinutes={sessionTimeout} logoutPath="/admin" />
       <RealtimeNotificationProvider userId={user.id} />
       <PushNotificationSetup userId={user.id} />

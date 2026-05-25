@@ -3,8 +3,10 @@ import AdminTopbar from '@/components/admin/AdminTopbar'
 import Link from 'next/link'
 import { Banknote, ArrowRight, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
 import SettlementReleaseButton from './SettlementReleaseButton'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 export default async function SettlementQueuePage() {
+  await requireAdminPermission('settlement')
   const service = createServiceClient()
 
   const { data: transactions } = await service
@@ -14,7 +16,7 @@ export default async function SettlementQueuePage() {
       send_amount, send_currency, receive_amount, receive_currency,
       seller_settlement_amount, created_at, receipt_confirmed_at,
       profiles!buyer_id(full_name),
-      sellers(profiles(full_name))
+      sellers(profiles(full_name), settlement_accounts)
     `)
     .eq('status', 'pending_settlement')
     .order('receipt_confirmed_at', { ascending: true }) // oldest first — most urgent
@@ -68,7 +70,7 @@ export default async function SettlementQueuePage() {
                 <table className="w-full text-sm">
                   <thead className="border-b border-gray-100 bg-gray-50">
                     <tr>
-                      {['Ref', 'Buyer', 'Seller', 'Exchange', 'Settlement Amount', 'Waiting', ''].map(h => (
+                      {['Ref', 'Buyer', 'Seller', 'Exchange', 'Settlement Amount', 'Payout Account', 'Waiting', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium text-xs">{h}</th>
                       ))}
                     </tr>
@@ -92,6 +94,22 @@ export default async function SettlementQueuePage() {
                           </td>
                           <td className="px-4 py-3">
                             <p className="font-bold text-green-700 text-sm">{tx.seller_settlement_amount?.toLocaleString()} {tx.send_currency}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const primaryAccount = ((tx.sellers as any)?.settlement_accounts as any)?.accounts?.find((a: any) => a.is_primary) ??
+                                ((tx.sellers as any)?.settlement_accounts as any)?.accounts?.[0]
+                              return primaryAccount ? (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-900">{primaryAccount.account_name}</p>
+                                  <p className="text-xs text-gray-500">{primaryAccount.provider}</p>
+                                  <p className="text-xs font-mono text-gray-700">{primaryAccount.account_number}</p>
+                                  <p className="text-[10px] text-gray-400">{primaryAccount.currency}</p>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-amber-500 font-medium">⚠ No account set</span>
+                              )
+                            })()}
                           </td>
                           <td className="px-4 py-3">
                             <div className={`flex items-center gap-1 text-xs font-medium ${urgent ? 'text-amber-600' : 'text-gray-400'}`}>
@@ -135,6 +153,18 @@ export default async function SettlementQueuePage() {
                         </div>
                         <SettlementReleaseButton transactionId={tx.id} />
                       </div>
+                      {(() => {
+                        const acc = ((tx.sellers as any)?.settlement_accounts as any)?.accounts?.find((a: any) => a.is_primary) ??
+                          ((tx.sellers as any)?.settlement_accounts as any)?.accounts?.[0]
+                        return acc ? (
+                          <div className="bg-gray-50 rounded-xl px-3 py-2 text-xs space-y-0.5">
+                            <p className="font-semibold text-gray-700">Send to: {acc.account_name}</p>
+                            <p className="text-gray-500">{acc.provider} · <span className="font-mono">{acc.account_number}</span> · {acc.currency}</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-amber-500 font-medium">⚠ Seller has not set a payout account</p>
+                        )
+                      })()}
                     </div>
                   )
                 })}

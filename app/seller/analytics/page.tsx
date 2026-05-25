@@ -48,7 +48,7 @@ export default async function SellerAnalyticsPage() {
   const unreadNotifs = notifications?.length ?? 0
 
   // Compute analytics
-  const completed = txns.filter(t => t.status === 'completed')
+  const completed = txns.filter(t => t.status === 'fully_completed')
   const rejected = txns.filter(t => ['seller_rejected', 'seller_timeout', 'cancelled'].includes(t.status))
   const disputed = txns.filter(t => t.status === 'disputed')
 

@@ -188,30 +188,6 @@ export async function initiateExchange(input: {
 }
 
 /**
- * Step 4.5: Buyer confirms exchange on checkout summary
- * Moves from AWAITING_PAYMENT → stays AWAITING_PAYMENT but marks commitment
- */
-export async function confirmExchange(transactionId: string) {
-  const { user, supabase } = await getAuthUser()
-  if (!user) return { error: 'Unauthorized' }
-
-  const { data: txn } = await supabase
-    .from('transactions')
-    .select('id, status, buyer_id')
-    .eq('id', transactionId)
-    .eq('buyer_id', user.id)
-    .single()
-
-  if (!txn) return { error: 'Transaction not found' }
-  if (txn.status !== 'awaiting_payment' && txn.status !== 'pending_acceptance') {
-    return { error: 'Transaction is not in the correct state' }
-  }
-
-  // Already in awaiting_payment — commitment point logged
-  return { success: true }
-}
-
-/**
  * Step 4.6: Buyer selects payment method
  */
 export async function selectPaymentMethod(transactionId: string, providerId: string) {
@@ -363,6 +339,141 @@ export async function sweepExpiredPaymentWindows() {
     }
   } catch (err) {
     console.error('[sweepExpiredPaymentWindows] unexpected error:', err)
+  }
+}
+
+/**
+ * Sweeps transactions stuck in pending_receipt_confirmation past their auto_confirm_due_at.
+ * Only runs if auto_confirm_enabled setting is true.
+ * Moves them to pending_settlement and notifies both parties.
+ * Non-fatal — never blocks page load.
+ */
+export async function sweepAutoConfirmReceipts() {
+  try {
+    const service = createServiceClient()
+
+    // Check if auto-confirm is enabled
+    const { data: setting } = await service
+      .from('settings')
+      .select('value')
+      .eq('key', 'auto_confirm_enabled')
+      .single()
+
+    const enabled = setting?.value === true || setting?.value === 'true'
+    if (!enabled) return
+
+    const now = new Date().toISOString()
+
+    const { data: overdue } = await service
+      .from('transactions')
+      .select('id, buyer_id, seller_id, hoxa_transaction_id, send_amount, send_currency, from_amount, from_currency, sellers(user_id)')
+      .eq('status', 'pending_receipt_confirmation')
+      .lt('auto_confirm_due_at', now)
+      .not('auto_confirm_due_at', 'is', null)
+
+    if (!overdue?.length) return
+
+    let confirmed = 0
+    for (const tx of overdue) {
+      // Atomic guard — only update if still in the right status
+      const { data: updated } = await service
+        .from('transactions')
+        .update({
+          status: 'pending_settlement',
+          receipt_confirmed_at: now,
+        })
+        .eq('id', tx.id)
+        .eq('status', 'pending_receipt_confirmation')
+        .select('id')
+
+      if (!updated?.length) continue // already moved by someone else
+
+      const ref = tx.hoxa_transaction_id ?? tx.id.slice(0, 8)
+      const amount = tx.send_amount ?? tx.from_amount
+      const currency = tx.send_currency ?? tx.from_currency
+
+      // Notify buyer
+      await createNotification(
+        tx.buyer_id,
+        'Receipt Auto-Confirmed',
+        `Your exchange ${ref} was automatically confirmed after the receipt window expired. Thank you for using HOXA.`,
+        'info'
+      )
+
+      // Notify seller
+      const sellerUserId = (tx.sellers as any)?.user_id
+      if (sellerUserId) {
+        await createNotification(
+          sellerUserId,
+          'Settlement Ready',
+          `Exchange ${ref} (${amount?.toLocaleString()} ${currency}) has been auto-confirmed. Your settlement is being processed.`,
+          'success'
+        )
+      }
+
+      confirmed++
+    }
+
+    if (confirmed > 0) {
+      console.log(`[sweepAutoConfirmReceipts] auto-confirmed ${confirmed} transaction(s)`)
+    }
+  } catch (err) {
+    console.error('[sweepAutoConfirmReceipts] unexpected error:', err)
+  }
+}
+
+/**
+ * Process queued transactions — call this when platform opens.
+ * Transitions all 'queued' transactions to 'pending_acceptance' and notifies each seller.
+ * Safe to call multiple times (idempotent per transaction via status check).
+ */
+export async function processQueuedTransactions(): Promise<{ processed: number; errors: number }> {
+  try {
+    const service = createServiceClient()
+
+    const { data: queued } = await service
+      .from('transactions')
+      .select('id, hoxa_transaction_id, buyer_id, seller_id, send_amount, send_currency, sellers(user_id, profiles(full_name))')
+      .eq('status', 'queued')
+
+    if (!queued?.length) return { processed: 0, errors: 0 }
+
+    let processed = 0
+    let errors = 0
+
+    for (const tx of queued) {
+      // Atomic guard — only update if still queued
+      const { data: updated } = await service
+        .from('transactions')
+        .update({ status: 'pending_acceptance' })
+        .eq('id', tx.id)
+        .eq('status', 'queued')
+        .select('id')
+
+      if (!updated?.length) continue // already handled by another call
+
+      // Notify seller
+      const sellerUserId = (tx.sellers as any)?.user_id
+      if (sellerUserId) {
+        await createNotification(
+          sellerUserId,
+          'New exchange request',
+          `Platform is now open. You have a new exchange request for ${tx.send_amount?.toLocaleString()} ${tx.send_currency}. Respond quickly to maintain your ranking.`,
+          'info'
+        )
+      }
+
+      processed++
+    }
+
+    if (processed > 0) {
+      console.log(`[processQueuedTransactions] promoted ${processed} queued transaction(s) → pending_acceptance`)
+    }
+
+    return { processed, errors }
+  } catch (err) {
+    console.error('[processQueuedTransactions] unexpected error:', err)
+    return { processed: 0, errors: 1 }
   }
 }
 
@@ -1105,8 +1216,56 @@ function computeSellerStatus(seller: Record<string, unknown>): 'available' | 'of
 }
 
 function computeNextAvailable(seller: Record<string, unknown>): string | null {
-  // Simplified: return null for now, can be computed from weekly_hours
-  return null
+  const weeklyHours = seller.weekly_hours as Record<string, { open: string; close: string }> | null
+  if (!weeklyHours || Object.keys(weeklyHours).length === 0) return null
+
+  const tz = (seller.timezone as string) ?? 'Africa/Accra'
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+  try {
+    const now = new Date()
+    // Check up to 7 days ahead
+    for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
+      const candidate = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000)
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        weekday: 'long',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      })
+      const parts = formatter.formatToParts(candidate)
+      const weekday = parts.find(p => p.type === 'weekday')?.value?.toLowerCase() ?? dayNames[candidate.getDay()]
+      const schedule = weeklyHours[weekday]
+      if (!schedule) continue
+
+      const [openH, openM] = schedule.open.split(':').map(Number)
+      const hour = Number(parts.find(p => p.type === 'hour')?.value ?? 0)
+      const minute = Number(parts.find(p => p.type === 'minute')?.value ?? 0)
+      const currentMinutes = hour * 60 + minute
+      const openMinutes = openH * 60 + (openM ?? 0)
+
+      // On day 0, only count if open time is in the future
+      if (daysAhead === 0 && currentMinutes >= openMinutes) continue
+
+      // Build ISO string for the open time on that day
+      const year = parts.find(p => p.type === 'year')?.value
+      const month = parts.find(p => p.type === 'month')?.value
+      const day = parts.find(p => p.type === 'day')?.value
+      if (!year || !month || !day) continue
+
+      // Create Date in local tz by parsing "YYYY-MM-DDTHH:MM" in the seller's timezone
+      const localStr = `${year}-${month}-${day}T${schedule.open}:00`
+      const openDate = new Date(new Date(localStr).toLocaleString('en-US', { timeZone: tz }))
+      return openDate.toISOString()
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 // ── ADMIN AUDIT LOGGING ─────────────────────────────────────────────────────

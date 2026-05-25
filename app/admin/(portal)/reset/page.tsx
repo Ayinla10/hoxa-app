@@ -2,20 +2,23 @@ import { getAuthUser, createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import ResetClient from './ResetClient'
+import { hasPermission } from '@/lib/admin-permissions'
 
 export default async function ResetPage() {
   const { user } = await getAuthUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/admin')
 
   const service = createServiceClient()
   const { data: profile } = await service
     .from('profiles')
-    .select('role')
+    .select('role, admin_permissions')
     .eq('id', user.id)
     .single()
 
-  // Only super_admin can access this page
-  if (profile?.role !== 'super_admin') redirect('/admin/dashboard')
+  if (profile?.role !== 'admin') redirect('/admin/dashboard')
+
+  const permissions = (profile?.admin_permissions as string[]) ?? []
+  if (!hasPermission(permissions, 'reset')) redirect('/admin/dashboard')
 
   return (
     <>
@@ -25,7 +28,6 @@ export default async function ResetPage() {
           <h2 className="font-bold text-gray-900 text-lg">Platform Reset</h2>
           <p className="text-gray-400 text-sm mt-0.5">
             Clear all operational data and return the platform to a fresh state.
-            This page is only accessible to super admins.
           </p>
         </div>
         <ResetClient adminEmail={user.email ?? ''} />

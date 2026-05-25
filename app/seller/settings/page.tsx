@@ -15,7 +15,7 @@ export default async function SellerSettingsPage() {
 
   const [{ data: notifications }, { data: seller }] = await Promise.all([
     supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
-    supabase.from('sellers').select('auto_accept_enabled, auto_accept_rules, weekly_hours, timezone').eq('user_id', user.id).single(),
+    supabase.from('sellers').select('auto_accept_enabled, auto_accept_rules, weekly_hours, timezone, settlement_accounts').eq('user_id', user.id).single(),
   ])
 
   const lang = (profile?.language ?? cookieStore.get('hoxa_lang')?.value ?? 'en') as Lang
@@ -33,6 +33,7 @@ export default async function SellerSettingsPage() {
           autoAcceptMaxAmount={(seller?.auto_accept_rules as any)?.max_amount ?? null}
           weeklyHours={(seller?.weekly_hours as any) ?? null}
           timezone={seller?.timezone ?? 'Africa/Accra'}
+          settlementAccounts={(seller?.settlement_accounts as any)?.accounts ?? []}
         />
       </main>
     </>

@@ -4,8 +4,10 @@ import UserActionsMenu from './UserActionsMenu'
 import UsersPageClient from './UsersPageClient'
 import Link from 'next/link'
 import { Users, ShieldCheck, Store, User } from 'lucide-react'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 export default async function AdminUsersPage() {
+  await requireAdminPermission('users')
   const supabase = createServiceClient()
 
   const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 })

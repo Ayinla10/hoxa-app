@@ -2,14 +2,55 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldAlert, AlertTriangle, Eye, EyeOff, Trash2, X, CheckCircle2 } from 'lucide-react'
-import { performPlatformReset } from '@/actions/reset'
+import { ShieldAlert, AlertTriangle, Eye, EyeOff, Trash2, X, CheckCircle2, ChevronDown, ChevronUp, Check } from 'lucide-react'
+import { performPlatformReset, type ResetOptions } from '@/actions/reset'
 
 interface Props {
   adminEmail: string
 }
 
 type Step = 'idle' | 'confirm1' | 'confirm2' | 'done'
+
+const EXTENDED_OPTIONS: { key: keyof ResetOptions; label: string; description: string; danger: 'high' | 'extreme' }[] = [
+  {
+    key: 'deleteOffers',
+    label: 'Delete all offers',
+    description: 'Sellers will need to re-create their exchange rate listings',
+    danger: 'high',
+  },
+  {
+    key: 'deleteCollectionAccounts',
+    label: 'Delete collection accounts',
+    description: 'HOXA bank/mobile money accounts buyers pay into. Corridors will break until re-linked.',
+    danger: 'high',
+  },
+  {
+    key: 'deleteCorridors',
+    label: 'Delete all corridors',
+    description: 'Disables the platform entirely — no exchanges can be started until corridors are recreated',
+    danger: 'extreme',
+  },
+  {
+    key: 'deleteSellerProfiles',
+    label: 'Delete seller profiles',
+    description: 'Removes all seller approvals and offers. Sellers must reapply to trade again.',
+    danger: 'extreme',
+  },
+  {
+    key: 'deleteUserAccounts',
+    label: 'Delete all user accounts',
+    description: 'Permanently deletes every non-admin user from the platform. They cannot log in again.',
+    danger: 'extreme',
+  },
+  {
+    key: 'resetSettings',
+    label: 'Reset settings to defaults',
+    description: 'Restores platform fee, timeouts, operating hours, and status to factory defaults',
+    danger: 'high',
+  },
+]
+
+const CONFIRM_WORD = 'RESET'
 
 export default function ResetClient({ adminEmail }: Props) {
   const router = useRouter()
@@ -19,16 +60,22 @@ export default function ResetClient({ adminEmail }: Props) {
   const [confirmWord, setConfirmWord] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showExtended, setShowExtended] = useState(false)
+  const [options, setOptions] = useState<ResetOptions>({})
 
-  const CONFIRM_WORD = 'RESET'
   const confirmWordMatch = confirmWord === CONFIRM_WORD
+  const anyExtendedSelected = Object.values(options).some(Boolean)
+
+  function toggleOption(key: keyof ResetOptions) {
+    setOptions(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   async function handleReset() {
     if (!confirmWordMatch) return
     setError('')
     setLoading(true)
 
-    const result = await performPlatformReset(password)
+    const result = await performPlatformReset(password, confirmWord, options)
 
     if (result.error) {
       setError(result.error)
@@ -51,7 +98,7 @@ export default function ResetClient({ adminEmail }: Props) {
         </div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">Platform Reset Complete</h2>
         <p className="text-gray-400 text-sm mb-6">
-          All transactions, ratings, and notifications have been cleared. Sellers and offers are intact.
+          All selected data has been permanently cleared.
         </p>
         <button
           onClick={() => router.push('/admin/dashboard')}
@@ -65,6 +112,7 @@ export default function ResetClient({ adminEmail }: Props) {
 
   return (
     <div className="space-y-5 max-w-lg">
+
       {/* Warning card */}
       <div className="bg-red-50 border border-red-200 rounded-2xl p-5 space-y-3">
         <div className="flex items-start gap-3">
@@ -72,27 +120,83 @@ export default function ResetClient({ adminEmail }: Props) {
             <ShieldAlert size={20} className="text-red-600" />
           </div>
           <div>
-            <p className="font-bold text-red-800 text-sm">Danger Zone — Super Admin Only</p>
+            <p className="font-bold text-red-800 text-sm">Danger Zone — Irreversible Action</p>
             <p className="text-red-600 text-xs mt-0.5">
-              This action permanently deletes all platform data. It cannot be undone.
+              This permanently deletes platform data. It cannot be undone.
             </p>
           </div>
         </div>
 
+        {/* Core reset items */}
         <div className="bg-white/60 rounded-xl p-4 space-y-1.5 text-xs text-red-700">
-          <p className="font-semibold text-red-800 mb-2">What will be deleted:</p>
+          <p className="font-semibold text-red-800 mb-2">Always deleted:</p>
           <p>• All transactions (all statuses)</p>
           <p>• All ratings and reviews</p>
           <p>• All notifications</p>
           <p>• All buyer-seller watches</p>
-          <p>• Seller stats reset (total transactions, completion rate, avg response)</p>
+          <p>• Seller stats reset (transactions, completion rate, avg response)</p>
           <p>• Buyer fraud flags and claim counts reset</p>
         </div>
 
-        <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-700">
-          <p className="font-semibold mb-1">What will NOT be deleted:</p>
-          <p>User accounts · Seller profiles · Offers · Corridors · Settings · Collection accounts</p>
-        </div>
+        {/* Extended options toggle */}
+        <button
+          type="button"
+          onClick={() => setShowExtended(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-white/60 hover:bg-white/80 text-xs font-semibold text-red-800 transition-colors border border-red-100"
+        >
+          <span className="flex items-center gap-2">
+            {anyExtendedSelected && (
+              <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {Object.values(options).filter(Boolean).length}
+              </span>
+            )}
+            Also delete (optional)
+          </span>
+          {showExtended ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {showExtended && (
+          <div className="space-y-2">
+            {EXTENDED_OPTIONS.map(opt => {
+              const active = !!options[opt.key]
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => toggleOption(opt.key)}
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                    active
+                      ? opt.danger === 'extreme'
+                        ? 'border-red-400 bg-red-100'
+                        : 'border-orange-300 bg-orange-50'
+                      : 'border-red-100 bg-white/50 hover:bg-white/80'
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
+                    active
+                      ? opt.danger === 'extreme' ? 'bg-red-500' : 'bg-orange-500'
+                      : 'border-2 border-red-300'
+                  }`}>
+                    {active && <Check size={10} className="text-white" strokeWidth={3} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold ${
+                      active
+                        ? opt.danger === 'extreme' ? 'text-red-800' : 'text-orange-800'
+                        : 'text-red-700'
+                    }`}>
+                      {opt.label}
+                      {opt.danger === 'extreme' && (
+                        <span className="ml-1.5 text-[9px] font-bold bg-red-500 text-white px-1 py-0.5 rounded">NUCLEAR</span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-red-500 mt-0.5">{opt.description}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Password field */}
@@ -164,8 +268,14 @@ export default function ResetClient({ adminEmail }: Props) {
             </div>
 
             <div className="bg-red-50 rounded-xl p-4 text-sm text-red-700 space-y-1">
-              <p className="font-semibold">You are about to permanently delete:</p>
-              <p>All transactions, ratings, notifications, and activity data from the entire platform.</p>
+              <p className="font-semibold mb-1">You are about to permanently delete:</p>
+              <p>• All transactions, ratings, notifications, and activity data</p>
+              {options.deleteOffers && <p>• All seller offers</p>}
+              {options.deleteCollectionAccounts && <p>• All collection accounts</p>}
+              {options.deleteCorridors && <p>• All exchange corridors</p>}
+              {options.deleteSellerProfiles && <p>• All seller profiles and approvals</p>}
+              {options.deleteUserAccounts && <p className="font-bold text-red-800">• ALL non-admin user accounts (permanent)</p>}
+              {options.resetSettings && <p>• Platform settings will be reset to defaults</p>}
             </div>
 
             <div className="flex gap-3">

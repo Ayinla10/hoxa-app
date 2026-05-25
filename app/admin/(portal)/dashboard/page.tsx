@@ -7,6 +7,7 @@ import {
   CheckCircle2, TrendingUp, ArrowRight, ArrowUpRight,
   ShieldCheck, Zap, Activity, SendHorizonal
 } from 'lucide-react'
+import { sweepExpiredPaymentWindows, processQueuedTransactions, sweepAutoConfirmReceipts } from '@/actions/exchange'
 
 // V5.1 status display map
 const STATUS_MAP: Record<string, { label: string; pill: string; dot: string }> = {
@@ -27,9 +28,60 @@ const STATUS_MAP: Record<string, { label: string; pill: string; dot: string }> =
 const V5_ACTIVE = ['pending_acceptance', 'awaiting_payment', 'pending_ops_confirmation', 'fulfillment_in_progress', 'pending_receipt_confirmation', 'pending_settlement']
 
 export default async function AdminDashboard() {
+  // Non-blocking background sweeps
+  void sweepExpiredPaymentWindows()
+  void processQueuedTransactions()
+  void sweepAutoConfirmReceipts()
+
   const supabase = createServiceClient()
   const authSupabase = await createClient()
   const { data: { user } } = await authSupabase.auth.getUser()
+
+  // System health checks — run in parallel, each with a timeout guard
+  const healthStart = Date.now()
+  const [dbCheck, stuckCheck, notifCheck] = await Promise.allSettled([
+    // 1. DB reachable — simple row-count on settings (fast, index-only)
+    supabase.from('settings').select('key', { count: 'exact', head: true }),
+    // 2. Stuck transactions — any tx in active state untouched for >2h
+    supabase.from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['pending_ops_confirmation', 'fulfillment_in_progress'])
+      .lt('updated_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()),
+    // 3. Notification queue — unread notifications older than 24h (potential delivery issue)
+    supabase.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('read', false)
+      .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+  ])
+  const healthMs = Date.now() - healthStart
+
+  const dbOk = dbCheck.status === 'fulfilled' && !dbCheck.value.error
+  const stuckCount = stuckCheck.status === 'fulfilled' ? (stuckCheck.value.count ?? 0) : 0
+  const oldNotifCount = notifCheck.status === 'fulfilled' ? (notifCheck.value.count ?? 0) : 0
+
+  const systemServices = [
+    {
+      label: 'Database',
+      ok: dbOk,
+      detail: dbOk ? `${healthMs}ms` : 'Unreachable',
+    },
+    {
+      label: 'Payment Engine',
+      ok: stuckCount === 0,
+      detail: stuckCount === 0 ? 'No stuck txns' : `${stuckCount} stuck >2h`,
+    },
+    {
+      label: 'Notifications',
+      ok: oldNotifCount < 50,
+      detail: oldNotifCount < 50 ? 'Queue clear' : `${oldNotifCount} unread >24h`,
+    },
+    {
+      label: 'API Gateway',
+      ok: dbOk,
+      detail: dbOk ? 'Reachable' : 'Degraded',
+    },
+  ]
+  const allOk = systemServices.every(s => s.ok)
 
   const [
     { count: totalUsers },
@@ -399,15 +451,19 @@ export default async function AdminDashboard() {
               <div className="flex items-center gap-2 mb-4">
                 <Zap size={13} className="text-green-200" />
                 <h3 className="text-white font-bold text-sm">System Status</h3>
-                <span className="ml-auto text-[10px] text-green-200 font-semibold">All Operational</span>
+                <span className={`ml-auto text-[10px] font-semibold ${allOk ? 'text-green-200' : 'text-amber-300'}`}>
+                  {allOk ? 'All Operational' : 'Needs Attention'}
+                </span>
               </div>
               <div className="space-y-2.5">
-                {['API Gateway', 'Payment Engine', 'Notifications', 'Database'].map(service => (
-                  <div key={service} className="flex items-center justify-between">
-                    <span className="text-white/60 text-xs">{service}</span>
+                {systemServices.map(service => (
+                  <div key={service.label} className="flex items-center justify-between">
+                    <span className="text-white/60 text-xs">{service.label}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-300" />
-                      <span className="text-green-200 text-[10px] font-semibold">OK</span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${service.ok ? 'bg-green-300' : 'bg-amber-400'}`} />
+                      <span className={`text-[10px] font-semibold ${service.ok ? 'text-green-200' : 'text-amber-300'}`}>
+                        {service.detail}
+                      </span>
                     </div>
                   </div>
                 ))}

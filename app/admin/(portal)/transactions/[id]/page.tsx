@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import { redirect } from 'next/navigation'
 import AdminTxActions from './AdminTxActions'
+import { requireAdminPermission } from '@/lib/admin-guard'
 import {
   ArrowLeft, ArrowRight, User, Store, Clock, CheckCircle2,
   AlertTriangle, CreditCard, SendHorizonal, ReceiptText, ShieldCheck
@@ -55,6 +56,7 @@ function TimelineItem({ icon: Icon, label, time, color = 'text-gray-400', done =
 }
 
 export default async function AdminTransactionDetailPage({ params }: Props) {
+  await requireAdminPermission('transactions')
   const { id } = await params
   const supabase = createServiceClient()
 

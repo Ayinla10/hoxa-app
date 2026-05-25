@@ -3,9 +3,12 @@ import AdminTopbar from '@/components/admin/AdminTopbar'
 import Link from 'next/link'
 import { ArrowLeftRight, ArrowRight } from 'lucide-react'
 import CurrencyFlag from '@/components/ui/CurrencyFlag'
+import { requireAdminPermission } from '@/lib/admin-guard'
+
+const PAGE_SIZE = 50
 
 interface Props {
-  searchParams: Promise<{ filter?: string }>
+  searchParams: Promise<{ filter?: string; page?: string }>
 }
 
 const STATUS_MAP: Record<string, { label: string; pill: string; dot: string }> = {
@@ -37,14 +40,16 @@ const ACTIVE_STATUSES = ['pending_acceptance', 'awaiting_payment', 'pending_ops_
 const REJECTED_STATUSES = ['seller_rejected', 'seller_timeout', 'cancelled', 'expired']
 
 export default async function AdminTransactionsPage({ searchParams }: Props) {
-  const { filter } = await searchParams
+  await requireAdminPermission('transactions')
+  const { filter, page: pageParam } = await searchParams
+  const page = Math.max(0, parseInt(pageParam ?? '0', 10) || 0)
   const supabase = createServiceClient()
 
   let query = supabase
     .from('transactions')
-    .select('id, send_amount, send_currency, receive_amount, receive_currency, from_amount, from_currency, to_amount, to_currency, exchange_rate, rate, status, created_at, hoxa_transaction_id, ive_paid_tapped_at, profiles!buyer_id(full_name), sellers(profiles(full_name))')
+    .select('id, send_amount, send_currency, receive_amount, receive_currency, from_amount, from_currency, to_amount, to_currency, exchange_rate, rate, status, created_at, hoxa_transaction_id, ive_paid_tapped_at, profiles!buyer_id(full_name), sellers(profiles(full_name))', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
   if (filter === 'active') {
     query = query.in('status', ACTIVE_STATUSES)
@@ -54,12 +59,11 @@ export default async function AdminTransactionsPage({ searchParams }: Props) {
     query = query.eq('status', filter)
   }
 
-  const { data: transactions } = await query
+  const { data: transactions, count: totalCount } = await query
+  const totalPages = Math.ceil((totalCount ?? 0) / PAGE_SIZE)
 
   // Count badges for filter tabs
-  const { data: counts } = await supabase
-    .from('transactions')
-    .select('status')
+  const { data: counts } = await supabase.from('transactions').select('status')
 
   function countFor(f: string) {
     if (!counts) return 0
@@ -69,13 +73,23 @@ export default async function AdminTransactionsPage({ searchParams }: Props) {
     return counts.filter(t => t.status === f).length
   }
 
+  function pageUrl(p: number) {
+    const params = new URLSearchParams()
+    if (filter) params.set('filter', filter)
+    if (p > 0) params.set('page', String(p))
+    const qs = params.toString()
+    return `/admin/transactions${qs ? `?${qs}` : ''}`
+  }
+
   return (
     <>
       <AdminTopbar title="Transactions" />
       <div className="px-4 lg:px-8 py-5 space-y-5 w-full">
         <div>
           <h2 className="font-bold text-gray-900 text-lg">All Transactions</h2>
-          <p className="text-gray-400 text-sm">{transactions?.length ?? 0} shown</p>
+          <p className="text-gray-400 text-sm">
+            {totalCount ?? 0} total · showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount ?? 0)}
+          </p>
         </div>
 
         {/* Filter tabs */}
@@ -196,6 +210,40 @@ export default async function AdminTransactionsPage({ searchParams }: Props) {
                   </Link>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-gray-400">
+              Page {page + 1} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              {page > 0 && (
+                <a href={pageUrl(page - 1)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                  ← Prev
+                </a>
+              )}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(0, Math.min(totalPages - 5, page - 2)) + i
+                return (
+                  <a key={p} href={pageUrl(p)}
+                    className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
+                      p === page ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    {p + 1}
+                  </a>
+                )
+              })}
+              {page < totalPages - 1 && (
+                <a href={pageUrl(page + 1)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                  Next →
+                </a>
+              )}
             </div>
           </div>
         )}

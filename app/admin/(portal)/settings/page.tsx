@@ -1,8 +1,10 @@
 import { getSettings } from '@/actions/settings'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import AdminSettingsClient from './AdminSettingsClient'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 export default async function AdminSettingsPage() {
+  await requireAdminPermission('settings')
   const settings = await getSettings()
 
   return (

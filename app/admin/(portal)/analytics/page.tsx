@@ -4,6 +4,7 @@ import {
   BarChart2, ArrowLeftRight, CheckCircle2, XCircle,
   AlertTriangle, TrendingUp, Users, Store, DollarSign,
 } from 'lucide-react'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 function getDayKey(dateStr: string, tz = 'Africa/Accra') {
   return new Date(dateStr).toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD
@@ -15,6 +16,7 @@ function formatDay(yyyy_mm_dd: string) {
 }
 
 export default async function AnalyticsPage() {
+  await requireAdminPermission('analytics')
   const supabase = createServiceClient()
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()

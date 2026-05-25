@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Clock, Percent, Globe, Store, Smartphone, ArrowLeftRight, Timer,
   Save, Loader2, CheckCircle2, AlertTriangle, Plus, X,
-  Lock, CreditCard, ShieldAlert, ReceiptText,
+  Lock, CreditCard, ShieldAlert, ReceiptText, MessageCircle,
 } from 'lucide-react'
 
 interface Props {
@@ -70,10 +70,12 @@ export default function AdminSettingsClient({ settings }: Props) {
   const router = useRouter()
 
   // V5.1 timing settings
+  const [whatsapp, setWhatsapp] = useState(String(settings['support_whatsapp'] ?? ''))
   const [rateLock, setRateLock] = useState(String(settings['rate_lock_duration_seconds'] ?? 600))
   const [paymentWindow, setPaymentWindow] = useState(String(settings['payment_window_duration_seconds'] ?? 1200))
   const [minTapTime, setMinTapTime] = useState(String(settings['minimum_tap_time_seconds'] ?? 30))
   const [receiptAutoConfirm, setReceiptAutoConfirm] = useState(String(settings['receipt_auto_confirm_seconds'] ?? 10800))
+  const [autoConfirmEnabled, setAutoConfirmEnabled] = useState(settings['auto_confirm_enabled'] === true || settings['auto_confirm_enabled'] === 'true')
 
   const [timeout, setTimeout_] = useState(String(settings['seller_response_timeout_seconds'] ?? 120))
   const [fallbackSellerId, setFallbackSellerId] = useState(String(settings['admin_fallback_seller_id'] ?? ''))
@@ -375,14 +377,36 @@ export default function AdminSettingsClient({ settings }: Props) {
       {/* Receipt Auto-Confirm */}
       <SettingCard
         icon={ReceiptText} iconColor="text-teal-600" iconBg="bg-teal-50"
-        title="Receipt Auto-Confirm Timeout"
-        description="If the buyer doesn't confirm receipt within this window after the seller marks fulfilled, the transaction auto-completes."
+        title="Receipt Auto-Confirm"
+        description="If the buyer doesn't confirm receipt within the set window, the transaction auto-completes and settlement is released to the seller."
       >
+        {/* Enable/disable toggle */}
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+          <div>
+            <p className={`text-sm font-semibold ${autoConfirmEnabled ? 'text-[#18824a]' : 'text-gray-500'}`}>
+              {autoConfirmEnabled ? 'Enabled — transactions auto-complete' : 'Disabled — manual confirmation only'}
+            </p>
+            <p className="text-gray-400 text-xs mt-0.5">
+              {autoConfirmEnabled ? 'Buyers who go silent will be auto-confirmed after the timeout.' : 'Buyers must manually confirm receipt. Transactions can get stuck.'}
+            </p>
+          </div>
+          <button
+            onClick={() => { const next = !autoConfirmEnabled; setAutoConfirmEnabled(next); save('auto_confirm_enabled', next) }}
+            disabled={loading === 'auto_confirm_enabled'}
+            className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ml-4 ${autoConfirmEnabled ? 'bg-[#18824a]' : 'bg-gray-300'} disabled:opacity-50`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${autoConfirmEnabled ? 'left-6' : 'left-0.5'}`} />
+          </button>
+        </div>
+
+        {/* Timeout duration */}
         <form onSubmit={e => { e.preventDefault(); save('receipt_auto_confirm_seconds', Number(receiptAutoConfirm), () => { const n = Number(receiptAutoConfirm); if (isNaN(n) || n < 1800 || n > 86400) return 'Must be between 30 minutes and 24 hours'; return null }) }}>
+          <p className="text-xs font-medium text-gray-600 mb-2">Auto-confirm after</p>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
               <input type="number" min={1800} max={86400} step={600} value={receiptAutoConfirm} onChange={e => setReceiptAutoConfirm(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all" />
+                disabled={!autoConfirmEnabled}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all disabled:opacity-40" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">seconds</span>
             </div>
             <SaveButton loading={loading === 'receipt_auto_confirm_seconds'} saved={saved === 'receipt_auto_confirm_seconds'} />
@@ -396,7 +420,8 @@ export default function AdminSettingsClient({ settings }: Props) {
               { label: '24h', val: 86400 },
             ].map(({ label, val }) => (
               <button key={val} type="button" onClick={() => setReceiptAutoConfirm(String(val))}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${receiptAutoConfirm === String(val) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                disabled={!autoConfirmEnabled}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all disabled:opacity-40 ${receiptAutoConfirm === String(val) ? 'bg-[#18824a] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                 {label}
               </button>
             ))}
@@ -514,6 +539,44 @@ export default function AdminSettingsClient({ settings }: Props) {
           </button>
         </div>
         {errors['momo_networks'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['momo_networks']}</p>}
+      </SettingCard>
+
+      {/* WhatsApp Support Number */}
+      <SettingCard
+        icon={MessageCircle} iconColor="text-green-600" iconBg="bg-green-50"
+        title="WhatsApp Support Number"
+        description="The number buyers reach when they tap 'Chat with Support'. Include country code (e.g. +233244123456)."
+      >
+        <form onSubmit={e => {
+          e.preventDefault()
+          save('support_whatsapp', whatsapp, () => {
+            if (!whatsapp.trim()) return 'Number is required'
+            if (!/^\+\d{7,15}$/.test(whatsapp.trim())) return 'Must start with + and contain only digits (e.g. +233244123456)'
+            return null
+          })
+        }}>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                <MessageCircle size={14} />
+              </span>
+              <input
+                type="tel"
+                value={whatsapp}
+                onChange={e => setWhatsapp(e.target.value)}
+                placeholder="+233244123456"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm focus:outline-none focus:border-[#18824a] focus:ring-2 focus:ring-[#18824a]/10 transition-all"
+              />
+            </div>
+            <SaveButton loading={loading === 'support_whatsapp'} saved={saved === 'support_whatsapp'} />
+          </div>
+          {whatsapp && (
+            <p className="text-gray-400 text-xs mt-2">
+              Opens: <span className="font-mono text-gray-600">wa.me/{whatsapp.replace(/\D/g, '')}</span>
+            </p>
+          )}
+          {errors['support_whatsapp'] && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={11} /> {errors['support_whatsapp']}</p>}
+        </form>
       </SettingCard>
 
       {/* Supported Countries — read only */}

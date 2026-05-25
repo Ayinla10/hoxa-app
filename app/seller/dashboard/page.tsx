@@ -69,7 +69,7 @@ export default async function SellerDashboardPage() {
       .from('transactions')
       .select('*, profiles!buyer_id(full_name)')
       .eq('seller_id', seller.id)
-      .eq('status', 'pending_seller')
+      .in('status', ['pending_acceptance', 'pending_seller'])
       .order('created_at', { ascending: false }),
     supabase
       .from('transactions')
@@ -104,7 +104,7 @@ export default async function SellerDashboardPage() {
   const dailyVolume = todayTxns.reduce((sum: number, t: any) => sum + (t.from_amount ?? 0), 0)
 
   // Stats
-  const todayCompleted = todayTxns.filter((t: any) => t.status === 'completed').length
+  const todayCompleted = todayTxns.filter((t: any) => t.status === 'fully_completed').length
   const avgResponse = seller.avg_response_seconds > 0
     ? `${Math.round(seller.avg_response_seconds)}s`
     : '—'

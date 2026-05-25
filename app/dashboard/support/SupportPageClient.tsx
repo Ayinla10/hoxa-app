@@ -43,14 +43,15 @@ const FAQS = [
 
 interface Props {
   transactions: any[]
+  whatsappNumber?: string
 }
 
-export default function SupportPageClient({ transactions }: Props) {
+export default function SupportPageClient({ transactions, whatsappNumber }: Props) {
   const { t } = useI18n()
   const [showDisputeForm, setShowDisputeForm] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
-  const WHATSAPP_NUMBER = '+233000000000' // Replace with real ops WhatsApp number
+  const WHATSAPP_NUMBER = whatsappNumber ?? '+233000000000'
   const SUPPORT_EMAIL = 'support@hoxa.app'
 
   const supportCards = [

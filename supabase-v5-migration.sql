@@ -172,10 +172,10 @@ alter table sellers add column if not exists admin_availability_override text
   check (admin_availability_override in ('available','offline'));
 alter table sellers add column if not exists avg_response_seconds integer;
 
--- Allow super_admin role on profiles
+-- Ensure profiles role constraint only uses valid roles (admin is the only admin role; super admin is expressed via admin_permissions array)
 alter table profiles drop constraint if exists profiles_role_check;
 alter table profiles add constraint profiles_role_check
-  check (role in ('buyer', 'seller', 'admin', 'super_admin'));
+  check (role in ('buyer', 'seller', 'admin'));
 
 -- ── TRANSACTIONS — complete v5.1 state machine ──
 -- First drop the old status check constraint
@@ -229,7 +229,11 @@ alter table transactions add column if not exists receipt_confirmed_at timestamp
 alter table transactions add column if not exists settlement_released_at timestamptz;
 alter table transactions add column if not exists auto_confirm_due_at timestamptz;
 alter table transactions add column if not exists dispute_reason text;
+alter table transactions add column if not exists dispute_notes text;
 alter table transactions add column if not exists ops_reject_reason text;
+alter table transactions add column if not exists manual_refund_sent_at timestamptz;
+alter table transactions add column if not exists manual_refund_notes text;
+alter table transactions add column if not exists manual_refund_by uuid references auth.users(id) on delete set null;
 alter table transactions add column if not exists payment_screen_loaded_at timestamptz;
 alter table transactions add column if not exists updated_at timestamptz not null default now();
 
@@ -520,7 +524,9 @@ insert into settings (key, value) values
   ('platform_timezone', '"Africa/Accra"'),
   ('queue_mode_enabled', 'true'),
   ('hoxa_buyer_fee_percent', '1'),
-  ('platform_status', '"open"')
+  ('platform_status', '"open"'),
+  ('support_whatsapp', '"+233000000000"'),
+  ('auto_confirm_enabled', 'true')
 on conflict (key) do nothing;
 
 -- ══════════════════════════════════════════════

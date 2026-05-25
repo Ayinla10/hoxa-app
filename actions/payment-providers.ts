@@ -48,14 +48,25 @@ export const getProviderById = cache(async (id: string) => {
 
 export const getCollectionAccount = cache(async (country: string, currency: string) => {
   const supabase = await createClient()
-  const { data } = await supabase
+  // Try exact country + currency match first, fall back to currency-only
+  const { data: exact } = await supabase
     .from('hoxa_collection_accounts')
     .select('*')
-    .eq('country', country)
     .eq('currency', currency)
     .eq('is_active', true)
-    .single()
-  return data
+    .eq('country', country)
+    .maybeSingle()
+  if (exact) return exact
+
+  // Fallback: any active account for this currency
+  const { data: byCurrency } = await supabase
+    .from('hoxa_collection_accounts')
+    .select('*')
+    .eq('currency', currency)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+  return byCurrency ?? null
 })
 
 export const getAllCollectionAccounts = cache(async () => {

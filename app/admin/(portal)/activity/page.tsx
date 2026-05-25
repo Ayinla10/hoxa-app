@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import Link from 'next/link'
 import { Activity, ArrowRight, ExternalLink } from 'lucide-react'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 const ACTION_LABELS: Record<string, { label: string; cls: string }> = {
   DISPUTE_RESOLVED_SELLER_WINS:  { label: 'Dispute → Seller wins',  cls: 'bg-green-50 text-green-700' },
@@ -26,16 +27,30 @@ function timeAgo(date: string) {
   return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-export default async function AdminActivityPage() {
+const LOG_PAGE_SIZE = 50
+
+interface ActivityProps {
+  searchParams: Promise<{ page?: string }>
+}
+
+export default async function AdminActivityPage({ searchParams }: ActivityProps) {
+  await requireAdminPermission('activity')
+  const { page: pageParam } = await searchParams
+  const page = Math.max(0, parseInt(pageParam ?? '0', 10) || 0)
   const supabase = createServiceClient()
 
-  const { data: logs } = await supabase
+  const { data: logs, count: totalCount } = await supabase
     .from('audit_logs')
-    .select('*, profiles!actor_id(full_name, role)')
+    .select('*, profiles!actor_id(full_name, role)', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(page * LOG_PAGE_SIZE, (page + 1) * LOG_PAGE_SIZE - 1)
 
   const entries = logs ?? []
+  const totalPages = Math.ceil((totalCount ?? 0) / LOG_PAGE_SIZE)
+
+  function pageUrl(p: number) {
+    return p > 0 ? `/admin/activity?page=${p}` : '/admin/activity'
+  }
 
   return (
     <>
@@ -45,10 +60,12 @@ export default async function AdminActivityPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-bold text-gray-900 text-lg">Activity Log</h2>
-            <p className="text-gray-400 text-sm mt-0.5">All admin actions — last 200 entries</p>
+            <p className="text-gray-400 text-sm mt-0.5">
+              {totalCount ?? 0} total entries · page {page + 1} of {totalPages || 1}
+            </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700 font-medium">
-            <Activity size={12} /> {entries.length} entries
+            <Activity size={12} /> {entries.length} shown
           </div>
         </div>
 
@@ -140,6 +157,38 @@ export default async function AdminActivityPage() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-gray-400">Page {page + 1} of {totalPages}</p>
+            <div className="flex items-center gap-2">
+              {page > 0 && (
+                <a href={pageUrl(page - 1)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                  ← Prev
+                </a>
+              )}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(0, Math.min(totalPages - 5, page - 2)) + i
+                return (
+                  <a key={p} href={pageUrl(p)}
+                    className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
+                      p === page ? 'bg-gray-900 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    {p + 1}
+                  </a>
+                )
+              })}
+              {page < totalPages - 1 && (
+                <a href={pageUrl(page + 1)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                  Next →
+                </a>
+              )}
             </div>
           </div>
         )}

@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Loader2, CheckCircle2, Clock, ArrowRight,
-  LifeBuoy, FileText, RefreshCw, XCircle, UserCheck, ShieldCheck
+  Loader2, CheckCircle2, Clock,
+  LifeBuoy, FileText, RefreshCw, UserCheck, ShieldCheck
 } from 'lucide-react'
 import { handleSellerTimeout } from '@/actions/exchange'
+import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   transaction: any
@@ -71,11 +72,36 @@ export default function WaitingClient({ transaction }: Props) {
 
   const stage = getStage(status)
 
-  // Poll for status changes every 8 seconds; trigger timeout check when deadline passes
+  // Realtime subscription — instant status push from Supabase
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`tx-waiting-${transaction.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'transactions',
+          filter: `id=eq.${transaction.id}`,
+        },
+        (payload) => {
+          const newStatus = (payload.new as any)?.status
+          if (newStatus && newStatus !== status) {
+            setStatus(newStatus)
+            router.refresh()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [transaction.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback poll every 10 seconds in case realtime misses an update; also handles timeout check
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        // If we're still waiting for acceptance and deadline has passed, trigger reassignment
         if (status === 'pending_acceptance' || status === 'pending_seller') {
           const deadline = transaction.seller_response_deadline
           if (deadline && new Date(deadline) < new Date()) {
@@ -84,7 +110,7 @@ export default function WaitingClient({ transaction }: Props) {
         }
         router.refresh()
       } catch {}
-    }, 8000)
+    }, 10000)
 
     return () => clearInterval(interval)
   }, [router, status, transaction.id, transaction.seller_response_deadline])

@@ -2,8 +2,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import Link from 'next/link'
 import { AlertTriangle, ArrowRight, ShieldCheck } from 'lucide-react'
+import { requireAdminPermission } from '@/lib/admin-guard'
 
 export default async function AdminDisputesPage() {
+  await requireAdminPermission('disputes')
   const supabase = createServiceClient()
 
   const { data: transactions } = await supabase

@@ -7,19 +7,19 @@ import { createAdminUser } from '@/actions/admin'
 
 const PERMISSIONS = [
   {
-    id: 'users',
-    label: 'User Management',
-    description: 'View, search and change user roles',
-  },
-  {
     id: 'transactions',
-    label: 'Transactions & Escrow',
-    description: 'Verify payments and release escrow',
+    label: 'Transactions',
+    description: 'View all platform transactions',
   },
   {
-    id: 'sellers',
-    label: 'Seller Applications',
-    description: 'Approve or reject seller applications',
+    id: 'payment_review',
+    label: 'Payment Review',
+    description: 'Confirm or reject buyer payment proofs',
+  },
+  {
+    id: 'settlement',
+    label: 'Settlement',
+    description: 'Release seller settlement funds',
   },
   {
     id: 'disputes',
@@ -27,19 +27,49 @@ const PERMISSIONS = [
     description: 'View and resolve buyer/seller disputes',
   },
   {
+    id: 'corridors',
+    label: 'Corridors',
+    description: 'Manage exchange corridors and rates',
+  },
+  {
+    id: 'users',
+    label: 'User Management',
+    description: 'View, search and change user roles',
+  },
+  {
+    id: 'sellers',
+    label: 'Seller Applications',
+    description: 'Approve or reject seller applications',
+  },
+  {
+    id: 'risk',
+    label: 'Risk Control',
+    description: 'Manage risk flags and fraud limits',
+  },
+  {
+    id: 'alerts',
+    label: 'Alerts',
+    description: 'View and manage platform alerts',
+  },
+  {
     id: 'analytics',
     label: 'Analytics & Reports',
     description: 'Access platform metrics and exports',
   },
   {
-    id: 'risk',
-    label: 'Risk Control',
-    description: 'Manage risk flags and limits',
+    id: 'activity',
+    label: 'Activity Log',
+    description: 'View admin audit and activity log',
   },
   {
     id: 'settings',
     label: 'System Settings',
     description: 'Change platform-wide configuration',
+  },
+  {
+    id: 'reset',
+    label: 'Platform Reset',
+    description: 'Wipe all operational data (danger)',
   },
 ]
 

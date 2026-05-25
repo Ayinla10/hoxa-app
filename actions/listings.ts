@@ -250,6 +250,47 @@ export async function requestPayout(data: {
   return { success: true }
 }
 
+// ── Seller payout / settlement accounts ──────────────────────────────────────
+
+export interface PayoutAccount {
+  id: string
+  provider: string
+  account_number: string
+  account_name: string
+  currency: string
+  country: string
+  is_primary: boolean
+}
+
+export async function saveSettlementAccounts(accounts: PayoutAccount[]) {
+  const { user, supabase } = await getAuthUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  // Sanitise inputs
+  const sanitised = accounts.map(a => ({
+    id: a.id,
+    provider: String(a.provider).slice(0, 80),
+    account_number: String(a.account_number).slice(0, 100),
+    account_name: String(a.account_name).slice(0, 100),
+    currency: String(a.currency).slice(0, 10),
+    country: String(a.country).slice(0, 80),
+    is_primary: !!a.is_primary,
+  }))
+
+  // Enforce exactly one primary
+  const hasPrimary = sanitised.some(a => a.is_primary)
+  if (sanitised.length > 0 && !hasPrimary) sanitised[0].is_primary = true
+
+  const { error } = await supabase
+    .from('sellers')
+    .update({ settlement_accounts: { accounts: sanitised } })
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/seller/settings')
+  return { success: true }
+}
+
 export async function deleteOffer(id: string) {
   const { supabase, user, offer } = await requireSellerOwnsOffer(id)
   if (!user) return { error: 'Unauthorized' }

@@ -3,12 +3,14 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AdminTopbar from '@/components/admin/AdminTopbar'
 import UserDetailClient from './UserDetailClient'
+import { requireAdminPermission } from '@/lib/admin-guard'
 import {
   ArrowLeft, User, Mail, Phone, Globe, Calendar, ShieldCheck,
   Store, ArrowLeftRight, AlertTriangle, CheckCircle2, Ban,
 } from 'lucide-react'
 
 export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPermission('users')
   const { id } = await params
   const service = createServiceClient()
 

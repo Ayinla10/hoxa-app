@@ -8,23 +8,24 @@ import {
   Bell, Search, Activity, Menu, X,
   LayoutDashboard, ArrowLeftRight, CreditCard, Users, Store,
   Settings, LogOut, ChevronRight, AlertTriangle, Banknote,
-  BarChart2, Shield, Globe
+  BarChart2, Shield, Globe, Trash2
 } from 'lucide-react'
+import { hasPermission, type AdminPermissionKey } from '@/lib/admin-permissions'
 
-const nav = [
-  { href: '/admin/dashboard',        icon: LayoutDashboard, label: 'Overview',            group: 'Operations', badge: ''       },
-  { href: '/admin/transactions',     icon: ArrowLeftRight,  label: 'Transactions',        group: 'Operations', badge: ''       },
-  { href: '/admin/payment-review',   icon: CreditCard,      label: 'Payment Review',      group: 'Operations', badge: 'ops'    },
-  { href: '/admin/settlement',       icon: Banknote,        label: 'Settlement',          group: 'Operations', badge: 'settle' },
-  { href: '/admin/disputes',         icon: AlertTriangle,   label: 'Disputes',            group: 'Operations', badge: ''       },
-  { href: '/admin/corridors',        icon: Globe,           label: 'Corridors',           group: 'Operations', badge: ''       },
-  { href: '/admin/users',            icon: Users,           label: 'Users',               group: 'Management', badge: ''       },
-  { href: '/admin/sellers',          icon: Store,           label: 'Seller Applications', group: 'Management', badge: ''       },
-  { href: '/admin/risk',             icon: Shield,          label: 'Risk',                group: 'Management', badge: ''       },
-  { href: '/admin/alerts',           icon: Bell,            label: 'Alerts',              group: 'Management', badge: ''       },
-  { href: '/admin/analytics',        icon: BarChart2,       label: 'Analytics',           group: 'System',     badge: ''       },
-  { href: '/admin/activity',         icon: Activity,        label: 'Activity Log',        group: 'System',     badge: ''       },
-  { href: '/admin/settings',         icon: Settings,        label: 'Settings',            group: 'System',     badge: ''       },
+const nav: { href: string; icon: React.ElementType; label: string; group: string; badge: string; permission: AdminPermissionKey | null }[] = [
+  { href: '/admin/dashboard',        icon: LayoutDashboard, label: 'Overview',            group: 'Operations', badge: '',       permission: null },
+  { href: '/admin/transactions',     icon: ArrowLeftRight,  label: 'Transactions',        group: 'Operations', badge: '',       permission: 'transactions' },
+  { href: '/admin/payment-review',   icon: CreditCard,      label: 'Payment Review',      group: 'Operations', badge: 'ops',    permission: 'payment_review' },
+  { href: '/admin/settlement',       icon: Banknote,        label: 'Settlement',          group: 'Operations', badge: 'settle', permission: 'settlement' },
+  { href: '/admin/disputes',         icon: AlertTriangle,   label: 'Disputes',            group: 'Operations', badge: '',       permission: 'disputes' },
+  { href: '/admin/corridors',        icon: Globe,           label: 'Corridors',           group: 'Operations', badge: '',       permission: 'corridors' },
+  { href: '/admin/users',            icon: Users,           label: 'Users',               group: 'Management', badge: '',       permission: 'users' },
+  { href: '/admin/sellers',          icon: Store,           label: 'Seller Applications', group: 'Management', badge: '',       permission: 'sellers' },
+  { href: '/admin/risk',             icon: Shield,          label: 'Risk',                group: 'Management', badge: '',       permission: 'risk' },
+  { href: '/admin/alerts',           icon: Bell,            label: 'Alerts',              group: 'Management', badge: '',       permission: 'alerts' },
+  { href: '/admin/analytics',        icon: BarChart2,       label: 'Analytics',           group: 'System',     badge: '',       permission: 'analytics' },
+  { href: '/admin/activity',         icon: Activity,        label: 'Activity Log',        group: 'System',     badge: '',       permission: 'activity' },
+  { href: '/admin/settings',         icon: Settings,        label: 'Settings',            group: 'System',     badge: '',       permission: 'settings' },
 ]
 
 const groups = ['Operations', 'Management', 'System']
@@ -35,9 +36,11 @@ interface Props {
   notifCount?: number
   pendingEscrow?: number
   pendingSettlement?: number
+  permissions?: string[]
+  isSuperAdmin?: boolean
 }
 
-export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0, pendingEscrow = 0, pendingSettlement = 0 }: Props) {
+export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0, pendingEscrow = 0, pendingSettlement = 0, permissions = [], isSuperAdmin = false }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
 
@@ -131,7 +134,7 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
           </div>
           <div>
             <p className="text-gray-900 text-sm font-semibold">{adminName}</p>
-            <p className="text-gray-400 text-xs">Super Admin</p>
+            <p className="text-gray-400 text-xs">{isSuperAdmin ? 'Super Admin' : 'Admin'}</p>
           </div>
           <div className="ml-auto w-2 h-2 rounded-full bg-[#22C55E]" />
         </div>
@@ -139,7 +142,8 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {groups.map(group => {
-            const items = nav.filter(n => n.group === group)
+            const items = nav.filter(n => n.group === group && (n.permission === null || hasPermission(permissions, n.permission)))
+            if (items.length === 0) return null
             return (
               <div key={group}>
                 <p className="px-3 mb-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">{group}</p>
@@ -180,8 +184,17 @@ export default function AdminTopbar({ title, adminName = 'Admin', notifCount = 0
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="px-4 py-4 border-t border-gray-100">
+        {/* Logout + super admin actions */}
+        <div className="px-4 py-4 border-t border-gray-100 space-y-0.5">
+          {hasPermission(permissions, 'reset') && (
+            <Link
+              href="/admin/reset"
+              onClick={() => setDrawerOpen(false)}
+              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition-colors"
+            >
+              <Trash2 size={15} /> Platform Reset
+            </Link>
+          )}
           <button
             onClick={logout}
             className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 text-sm font-medium transition-colors"
